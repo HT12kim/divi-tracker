@@ -124,13 +124,23 @@ function SearchBar({ onSelect, onFetch, liveCache }) {
         const controller = new AbortController();
         setLoadingSuggest(true);
         setErrorSuggest(null);
-        fetch(`/api/search?q=${encodeURIComponent(debounced)}`, { signal: controller.signal })
+        const enc = encodeURIComponent;
+        const url = `/api/search?q=${enc(debounced)}&lang=ko-KR&region=KR`;
+
+        const normalizeKR = (s) => {
+            // KRX:123456 → 123456.KS, 숫자 6자리 → .KS
+            if (/^KRX:/i.test(s)) return s.replace(/^KRX:/i, '') + '.KS';
+            if (/^[0-9]{6}$/.test(s)) return s + '.KS';
+            return s;
+        };
+
+        fetch(url, { signal: controller.signal })
             .then((res) => (res.ok ? res.json() : Promise.reject(new Error('search failed'))))
             .then((data) => {
                 const list = (data.quotes || [])
                     .filter((q) => q.symbol && q.quoteType !== 'CRYPTOCURRENCY')
                     .map((q) => ({
-                        symbol: q.symbol,
+                        symbol: normalizeKR(q.symbol),
                         shortname: q.shortname,
                         longname: q.longname,
                         quoteType: q.quoteType,
@@ -1253,10 +1263,10 @@ function DashboardApp() {
 
     const fetchLiveStock = useCallback(async (symbolInput) => {
         const raw = symbolInput.trim();
-        const symbol = normalizeSymbol(raw);
-        if (!symbol) throw new Error('티커를 입력하세요');
+        const normalized = normalizeSymbol(raw);
+        if (!normalized) throw new Error('티커를 입력하세요');
 
-        let resolvedSymbol = symbol;
+        let resolvedSymbol = normalized;
         if (/[가-힣]/.test(raw) || /\s/.test(raw)) {
             try {
                 const searchRes = await fetch(`/api/search?q=${encodeURIComponent(raw)}`);
@@ -1270,9 +1280,18 @@ function DashboardApp() {
             } catch (_) {}
         }
 
-        const quoteRes = await fetch(`/api/quote?symbol=${encodeURIComponent(resolvedSymbol)}`);
-        if (!quoteRes.ok) throw new Error('실시간 시세 조회 실패');
-        const quote = await quoteRes.json();
+        const symbolCandidates = [resolvedSymbol];
+        if (resolvedSymbol.endsWith('.KS')) symbolCandidates.push(resolvedSymbol.replace(/\.KS$/, '.KQ'));
+
+        let quote = null;
+        for (const sym of symbolCandidates) {
+            const quoteRes = await fetch(`/api/quote?symbol=${encodeURIComponent(sym)}`);
+            if (!quoteRes.ok) continue;
+            quote = await quoteRes.json();
+            resolvedSymbol = sym;
+            break;
+        }
+        if (!quote) throw new Error('실시간 시세 조회 실패');
 
         const sd = quote._summaryDetail ?? {};
         const ce = quote._calendarEvents ?? {};
@@ -1287,11 +1306,11 @@ function DashboardApp() {
             quote.ask ??
             quote.previousClose ??
             0;
-        const annualDPS = sd.dividendRate ?? sd.trailingAnnualDividendRate ?? quote.trailingAnnualDividendRate ?? 0;
+        let annualDPS = sd.dividendRate ?? sd.trailingAnnualDividendRate ?? quote.trailingAnnualDividendRate ?? 0;
         const rawYield =
             sd.dividendYield ?? sd.yield ?? sd.trailingAnnualDividendYield ?? quote.trailingAnnualDividendYield ?? null;
-        // yahoo-finance2 항상 소수(0.05 = 5%) 반환 → 항상 *100
-        const dividendYield = rawYield != null ? rawYield * 100 : price && annualDPS ? (annualDPS / price) * 100 : 0;
+        // yahoo-finance2는 소수(0.05 = 5%) 반환 → 항상 *100
+        let dividendYield = rawYield != null ? rawYield * 100 : price && annualDPS ? (annualDPS / price) * 100 : 0;
         const name = quote.longName || quote.shortName || quote.symbol || resolvedSymbol.toUpperCase();
         const aliases = [
             quote.shortName,
@@ -1350,6 +1369,20 @@ function DashboardApp() {
                 const payDate = pay ? pay.toISOString().slice(0, 10) : exDate;
                 events = [{ exDate, payDate, dps: Number(annualDPS) || 0 }];
             }
+        }
+
+        // 국내 종목 등 배당 정보가 비어있을 때 이벤트 기반으로 DPS/Yield 추론
+        if (annualDPS <= 0 && events.length > 0) {
+            const now = new Date();
+            const last12 = events.filter((ev) => {
+                const dt = parseDate(ev.exDate);
+                return now - dt <= 365 * 24 * 60 * 60 * 1000 && now >= dt;
+            });
+            const sum = (last12.length > 0 ? last12 : events).reduce((acc, ev) => acc + (Number(ev.dps) || 0), 0);
+            annualDPS = sum;
+        }
+        if (dividendYield <= 0 && price && annualDPS) {
+            dividendYield = (annualDPS / price) * 100;
         }
 
         const frequency = inferFrequency(
