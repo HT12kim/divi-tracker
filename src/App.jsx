@@ -816,12 +816,21 @@ function DividendTable({ stock }) {
 function DividendCalculator({ stock, exchangeRate = DEFAULT_EXCHANGE_RATE }) {
     const [shares, setShares] = useState('');
     const sharesNum = parseFloat(shares) || 0;
-    const annualCount = stock.events.length;
+
+    const inferredCountByFreq = { monthly: 12, quarterly: 4, semiannual: 2, annual: 1, none: 1 };
+    const annualCount = stock.events.length > 0 ? stock.events.length : inferredCountByFreq[stock.frequency] || 1;
+
+    const derivedAnnualDps =
+        stock.annualDPS && stock.annualDPS > 0
+            ? stock.annualDPS
+            : stock.currentPrice && stock.dividendYield
+              ? (stock.currentPrice * stock.dividendYield) / 100
+              : 0;
 
     const rate = exchangeRate ?? DEFAULT_EXCHANGE_RATE;
     const rateLabel = exchangeRate != null ? rate.toLocaleString() : `${rate.toLocaleString()} (기본)`;
 
-    const annualGross = sharesNum * stock.annualDPS;
+    const annualGross = sharesNum * derivedAnnualDps;
     const annualTax = annualGross * stock.taxRate;
     const annualNet = annualGross - annualTax;
     const perPayment = annualCount > 0 ? annualNet / annualCount : 0;
@@ -869,7 +878,7 @@ function DividendCalculator({ stock, exchangeRate = DEFAULT_EXCHANGE_RATE }) {
                     label="연간 세전"
                     primary={sharesNum > 0 ? fmtNum(annualGross, stock.currency) : '—'}
                     secondary={sharesNum > 0 && stock.currency === 'USD' ? fmtKRW(annualGross * rate) : null}
-                    sub={annualCount + '회 × ' + fmtNum(stock.annualDPS / annualCount, stock.currency)}
+                    sub={annualCount + '회 × ' + fmtNum(derivedAnnualDps / annualCount, stock.currency)}
                     color="slate"
                 />
                 <CalcCard
