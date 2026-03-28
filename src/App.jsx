@@ -1166,90 +1166,66 @@ function DashboardApp() {
     const [exchangeRateUpdatedAt, setExchangeRateUpdatedAt] = useState(null);
 
     const inferFrequency = (events, fallbackYield, country, ticker, quoteType) => {
-        const overrides = {
-            // 무배당 예외
-            GLD: 'none',
-            // 분기배당 ETF
-            QQQ: 'quarterly',
-            'QQQ.MX': 'quarterly',
-            QQQM: 'quarterly',
-            SCHD: 'quarterly',
-            VOO: 'quarterly',
-            VTI: 'quarterly',
-            VYM: 'quarterly',
-            DVY: 'quarterly',
-            SPY: 'quarterly',
-            IVV: 'quarterly',
-            DGRO: 'quarterly',
-            SPHD: 'quarterly',
-            SPYD: 'quarterly',
-            SPLV: 'quarterly',
-            DIA: 'quarterly',
-            NOBL: 'quarterly',
-            HDV: 'quarterly',
-            SDY: 'quarterly',
-            FDVV: 'quarterly',
-            // 월배당 ETF
-            JEPI: 'monthly',
-            JEPQ: 'monthly',
-            O: 'monthly',
-            QYLD: 'monthly',
-            XYLD: 'monthly',
-            RYLD: 'monthly',
-            NUSI: 'monthly',
-            DIVO: 'monthly',
-            PFFD: 'monthly',
-            // 분기배당 주식
-            AAPL: 'quarterly',
-            MSFT: 'quarterly',
-            JNJ: 'quarterly',
-            PFE: 'quarterly',
-            ABBV: 'quarterly',
-            KO: 'quarterly',
-            PG: 'quarterly',
-            XOM: 'quarterly',
-            CVX: 'quarterly',
-            VZ: 'quarterly',
-            T: 'quarterly',
-            MO: 'quarterly',
-            PM: 'quarterly',
-            MMM: 'quarterly',
-            IBM: 'quarterly',
-        };
-        if (overrides[ticker]) return overrides[ticker];
+        // 명백한 무배당 종목만 overrides (최소화)
+        const nonDividendOverrides = new Set(['GLD', 'GLD.AX', 'IAU', 'SLV', 'BTC-USD']);
+        if (nonDividendOverrides.has(ticker)) return 'none';
 
         const count = events.length;
+        const yieldPct = Number(fallbackYield) || 0;
         const totalDps = events.reduce((sum, ev) => sum + (Number(ev.dps) || 0), 0);
         const maxDps = events.reduce((m, ev) => Math.max(m, Number(ev.dps) || 0), 0);
-        const yieldPct = Number(fallbackYield) || 0;
 
-        // 배당 이력·수익률 모두 사실상 0이면 비배당
-        if (
-            (count === 0 && yieldPct < 0.01) ||
-            (totalDps === 0 && yieldPct < 0.01) ||
-            (maxDps <= 0.0001 && yieldPct < 0.01)
-        ) {
+        // KR 종목은 Yahoo가 yield를 0으로 내려도 이벤트가 있으면 비배당 아님
+        const isKR = country === 'KR' || ticker.endsWith('.KS') || ticker.endsWith('.KQ');
+        const effectiveNoneDivThreshold = isKR ? 0 : 0.01;
+
+        if (count === 0 && yieldPct < effectiveNoneDivThreshold && totalDps === 0 && maxDps <= 0.0001) {
             return 'none';
         }
+
+        // ── Phase 1: 이벤트 간 날짜 GAP 기반 추론 (3건 이상일 때 우선 적용) ──
+        if (count >= 3) {
+            const sorted = [...events].sort((a, b) => new Date(a.exDate) - new Date(b.exDate));
+            const gaps = [];
+            for (let i = 1; i < sorted.length; i++) {
+                const diff = (new Date(sorted[i].exDate) - new Date(sorted[i - 1].exDate)) / (1000 * 60 * 60 * 24);
+                if (diff > 0) gaps.push(diff);
+            }
+            if (gaps.length > 0) {
+                const sorted_gaps = [...gaps].sort((a, b) => a - b);
+                const mid = Math.floor(sorted_gaps.length / 2);
+                const median =
+                    sorted_gaps.length % 2 === 1 ? sorted_gaps[mid] : (sorted_gaps[mid - 1] + sorted_gaps[mid]) / 2;
+
+                if (median <= 45) return 'monthly';
+                if (median <= 105) return 'quarterly';
+                if (median <= 200) return 'semiannual';
+                return 'annual';
+            }
+        }
+
+        // ── Phase 2: count/span 기반 추론 (fallback) ──
         const years = events.map((e) => parseDate(e.exDate).getFullYear()).filter((y) => !Number.isNaN(y));
         if (years.length > 0) {
             const minY = Math.min(...years);
             const maxY = Math.max(...years);
             const span = Math.max(1, maxY - minY + 1);
             const perYear = count / span;
-            if (perYear >= 9.5) return 'monthly';
-            if (perYear >= 3.5) return 'quarterly';
+            if (perYear >= 9.0) return 'monthly';
+            if (perYear >= 3.0) return 'quarterly';
             if (perYear >= 1.5) return 'semiannual';
         }
 
+        // 단일연도: count만으로 판단
+        if (count >= 10) return 'monthly';
         if (count >= 4) return 'quarterly';
         if (count >= 2) return 'semiannual';
 
-        // US ETF/펀드: 의미 있는 수익률이 있을 때만 분기 추정
-        if (country === 'US' && (quoteType === 'ETF' || quoteType === 'MUTUALFUND') && yieldPct >= 0.01)
-            return 'quarterly';
-        // US 주식: 수익률이 있으면 분기 추정
-        if (country === 'US' && yieldPct >= 0.01) return 'quarterly';
+        // ETF/펀드/주식 기본 추정
+        if (yieldPct >= 0.01) {
+            if (quoteType === 'ETF' || quoteType === 'MUTUALFUND') return 'quarterly';
+            if (country === 'US') return 'quarterly';
+        }
 
         return 'annual';
     };
