@@ -213,7 +213,7 @@ function SearchBar({ onSelect, onFetch, liveCache }) {
         <div ref={wrapRef} className="relative w-full max-w-xl">
             <div
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl
-        bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-white/60 dark:border-slate-800/70
+        bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70
         shadow-lg shadow-black/5 focus-within:ring-2 focus-within:ring-orange-400 transition-all"
             >
                 <Search className="w-4 h-4 text-slate-400 flex-shrink-0" />
@@ -256,7 +256,7 @@ function SearchBar({ onSelect, onFetch, liveCache }) {
             {hasDropdown && (
                 <div
                     className="absolute top-full mt-2 left-0 right-0 z-50 rounded-2xl shadow-2xl shadow-black/10 overflow-hidden
-          bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-white/60 dark:border-slate-800/70"
+          bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70"
                 >
                     {loadingSuggest && (
                         <div className="px-4 py-3 text-sm text-slate-400 dark:text-slate-500">검색 중...</div>
@@ -336,9 +336,9 @@ function WatchlistPanel({ watchlist, selected, onSelect, onRemove }) {
                     관심 목록
                 </h2>
                 <div
-                    className="flex flex-col items-center justify-center gap-2 rounded-2xl
-          bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-dashed border-white/60 dark:border-slate-800/70
-          shadow-lg shadow-black/5 py-10 px-4 text-center"
+                      className="flex flex-col items-center justify-center gap-2 rounded-2xl
+                bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-dashed border-slate-200/90 dark:border-slate-800/70
+                shadow-lg shadow-black/5 py-10 px-4 text-center"
                 >
                     <BookmarkPlus className="w-7 h-7 text-slate-300 dark:text-slate-600" />
                     <p className="text-xs text-slate-400 dark:text-slate-500">
@@ -368,7 +368,7 @@ function WatchlistPanel({ watchlist, selected, onSelect, onRemove }) {
                                 'group relative rounded-xl p-3 cursor-pointer border transition-all bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl shadow-lg shadow-black/5 ' +
                                 (isActive
                                     ? 'border-orange-300/80 shadow-orange-200/60'
-                                    : 'border-white/60 dark:border-slate-800 hover:border-orange-300 dark:hover:border-orange-500')
+                                    : 'border-slate-200/80 dark:border-slate-800 hover:border-orange-300 dark:hover:border-orange-500')
                             }
                             onClick={() => onSelect(s)}
                         >
@@ -451,7 +451,7 @@ function WatchlistPanel({ watchlist, selected, onSelect, onRemove }) {
 function StockInfoHeader({ stock }) {
     const growthPositive = stock.dividendGrowthRate >= 0;
     return (
-        <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-white/50 dark:border-slate-800/60 p-5 shadow-2xl shadow-black/10">
+        <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/60 p-5 shadow-2xl shadow-black/10">
             <div className="flex flex-wrap items-start gap-x-6 gap-y-3">
                 <div className="flex items-center gap-3 min-w-0">
                     <div
@@ -528,7 +528,7 @@ function MetricChip({ label, value, icon, highlight }) {
     return (
         <div
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl
-            bg-white/60 dark:bg-slate-800/70 backdrop-blur border border-white/50 dark:border-slate-700/60 shadow-sm"
+        bg-white/60 dark:bg-slate-800/70 backdrop-blur border border-slate-200/80 dark:border-slate-700/60 shadow-sm"
         >
             <span className="text-slate-400 dark:text-slate-500">{icon}</span>
             <div>
@@ -574,7 +574,7 @@ function DividendTimeline({ stock }) {
     });
 
     return (
-        <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-white/50 dark:border-slate-800/70 p-5 shadow-xl">
+        <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 p-5 shadow-xl">
             <div className="flex items-center gap-2 mb-4">
                 <CalendarDays className="w-4 h-4 text-indigo-500" />
                 <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
@@ -729,7 +729,7 @@ function DividendTimeline({ stock }) {
 // ─────────────────────────────────────────────
 function DividendTable({ stock }) {
     return (
-        <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-white/50 dark:border-slate-800/70 shadow-xl overflow-hidden">
+        <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 shadow-xl overflow-hidden">
             <div className="flex items-center gap-2 px-5 py-3.5 border-b border-slate-100 dark:border-slate-700">
                 <Clock className="w-4 h-4 text-indigo-500" />
                 <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
@@ -858,7 +858,7 @@ function DividendCalculator({ stock, exchangeRate = DEFAULT_EXCHANGE_RATE }) {
     const nextPayKRW = toKRW(nextPayNet, stock.currency, rate);
 
     return (
-        <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-white/50 dark:border-slate-800/70 p-5 shadow-xl">
+        <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 p-5 shadow-xl">
             <div className="flex items-center gap-2 mb-4">
                 <DollarSign className="w-4 h-4 text-indigo-500" />
                 <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">세후 배당금 계산기</h2>
@@ -870,8 +870,8 @@ function DividendCalculator({ stock, exchangeRate = DEFAULT_EXCHANGE_RATE }) {
             <div className="flex items-center gap-3 mb-4">
                 <label className="text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap">보유 수량</label>
                 <div
-                    className="flex-1 flex items-center gap-2 px-3 py-2 rounded-xl
-          bg-white/60 dark:bg-slate-800/70 backdrop-blur border border-white/50 dark:border-slate-700
+                        className="flex-1 flex items-center gap-2 px-3 py-2 rounded-xl
+                    bg-white/60 dark:bg-slate-800/70 backdrop-blur border border-slate-200/80 dark:border-slate-700
           focus-within:ring-2 focus-within:ring-indigo-500 transition-all"
                 >
                     <input
@@ -1000,7 +1000,7 @@ function DpsBarChart({ stock }) {
     };
 
     return (
-        <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-white/50 dark:border-slate-800/70 p-5 shadow-xl">
+        <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 p-5 shadow-xl">
             <div className="flex items-center gap-2 mb-4">
                 <BarChart2 className="w-4 h-4 text-indigo-500" />
                 <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">회차별 주당 배당금 (DPS)</h2>
@@ -1598,7 +1598,7 @@ function DashboardApp() {
             </div>
             <header
                 className="sticky top-0 z-40 bg-white/60 dark:bg-slate-900/50 backdrop-blur-xl
-        border-b border-white/40 dark:border-slate-800/60 shadow-lg"
+            border-b border-slate-200/80 dark:border-slate-800/60 shadow-lg"
             >
                 <div className="max-w-screen-xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-4">
                     <div
@@ -1639,7 +1639,7 @@ function DashboardApp() {
                     className="absolute inset-0 rounded-[32px] bg-white/20 dark:bg-slate-900/20 blur-3xl"
                     aria-hidden
                 />
-                <div className="relative rounded-[28px] border border-white/50 dark:border-slate-800/60 bg-white/60 dark:bg-slate-900/50 backdrop-blur-2xl shadow-2xl shadow-black/10 p-4 sm:p-6">
+                <div className="relative rounded-[28px] border border-slate-200/80 dark:border-slate-800/60 bg-white/60 dark:bg-slate-900/50 backdrop-blur-2xl shadow-2xl shadow-black/10 p-4 sm:p-6">
                     <div className="flex flex-col xl:flex-row gap-5 items-start">
                         <WatchlistPanel
                             watchlist={watchlist}
