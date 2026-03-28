@@ -546,7 +546,8 @@ function FreqBadge({ freq }) {
 // ─────────────────────────────────────────────
 function DividendTimeline({ stock }) {
     const years = [CURRENT_YEAR - 1, CURRENT_YEAR];
-    const byYear = years.map((year) => ({ year, months: Array.from({ length: 12 }, () => ({ ex: [], pay: [] })) }));
+    const yearsDesc = [...years].sort((a, b) => b - a);
+    const byYear = yearsDesc.map((year) => ({ year, months: Array.from({ length: 12 }, () => ({ ex: [], pay: [] })) }));
 
     stock.events.forEach((ev) => {
         const exDt = parseDate(ev.exDate);
@@ -567,7 +568,7 @@ function DividendTimeline({ stock }) {
             <div className="flex items-center gap-2 mb-4">
                 <CalendarDays className="w-4 h-4 text-indigo-500" />
                 <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                    {years[0]}~{years[1]}년 배당 타임라인
+                    {Math.min(...years)}~{Math.max(...years)}년 배당 타임라인
                 </h2>
                 <div className="ml-auto flex items-center gap-4 text-xs text-slate-400 dark:text-slate-500">
                     <span className="flex items-center gap-1.5">
