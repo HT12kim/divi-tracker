@@ -1251,6 +1251,8 @@ function DashboardApp() {
         if (!normalized) throw new Error('티커를 입력하세요');
 
         let resolvedSymbol = normalized;
+        let krShortName = null;
+        let krLongName = null;
         if (/[가-힣]/.test(raw) || /\s/.test(raw)) {
             try {
                 const searchRes = await fetch(`/api/search?q=${encodeURIComponent(raw)}&lang=ko-KR&region=KR`);
@@ -1270,7 +1272,11 @@ function DashboardApp() {
                         return score(b) - score(a);
                     });
                     const cand = ranked[0];
-                    if (cand && cand.symbol) resolvedSymbol = normalizeSymbol(cand.symbol);
+                    if (cand && cand.symbol) {
+                        resolvedSymbol = normalizeSymbol(cand.symbol);
+                        krShortName = cand.shortname || null;
+                        krLongName = cand.longname || null;
+                    }
                 }
             } catch (_) {}
         }
@@ -1308,6 +1314,29 @@ function DashboardApp() {
         let dividendYield = rawYield != null ? rawYield * 100 : price && annualDPS ? (annualDPS / price) * 100 : 0;
         const name = quote.longName || quote.shortName || quote.symbol || resolvedSymbol.toUpperCase();
         const baseSymbol = normalized;
+        const country = currency === 'KRW' ? 'KR' : 'US';
+        const taxRate = country === 'KR' ? 0.154 : 0.15;
+
+        // KR 종목인데 한글명이 아직 없으면 6자리 코드로 검색해서 한글명 취득
+        if (country === 'KR' && !krShortName && !krLongName) {
+            try {
+                const sixDigit = resolvedSymbol.replace(/\.(KS|KQ)$/i, '');
+                const krRes = await fetch(`/api/search?q=${encodeURIComponent(sixDigit)}&lang=ko-KR&region=KR`);
+                if (krRes.ok) {
+                    const krData = await krRes.json();
+                    const krMatch = (krData.quotes || []).find(
+                        (q) =>
+                            normalizeSymbol(q.symbol) === resolvedSymbol ||
+                            q.symbol?.replace(/^KRX:/i, '') + '.KS' === resolvedSymbol,
+                    );
+                    if (krMatch) {
+                        krShortName = krMatch.shortname || null;
+                        krLongName = krMatch.longname || null;
+                    }
+                }
+            } catch (_) {}
+        }
+
         const aliases = [
             quote.shortName,
             quote.longName,
@@ -1317,11 +1346,11 @@ function DashboardApp() {
             baseSymbol.replace(/\.KS$/, ''),
             baseSymbol.replace(/\.KQ$/, ''),
             resolvedSymbol,
+            krShortName,
+            krLongName,
         ]
             .filter(Boolean)
             .map((v) => v.toString());
-        const country = currency === 'KRW' ? 'KR' : 'US';
-        const taxRate = country === 'KR' ? 0.154 : 0.15;
         const quoteType = quote.quoteType || '';
         const sector = quote.market || quoteType || 'N/A';
 
@@ -1389,6 +1418,38 @@ function DashboardApp() {
             quoteType,
         );
 
+        // YoY 배당 성장률 계산 (연도별 DPS 합계 비교)
+        let dividendGrowthRate = 0;
+        if (events.length >= 2) {
+            const nowYear = new Date().getFullYear();
+            const dpsByYear = {};
+            for (const ev of events) {
+                const yr = new Date(ev.exDate).getFullYear();
+                if (!isNaN(yr)) dpsByYear[yr] = (dpsByYear[yr] || 0) + (Number(ev.dps) || 0);
+            }
+            // 완전히 지난 연도만 사용 (현재 연도 제외)
+            const completedYears = Object.keys(dpsByYear)
+                .map(Number)
+                .filter((y) => y < nowYear)
+                .sort((a, b) => b - a);
+            if (completedYears.length >= 2) {
+                const [y1, y2] = completedYears; // y1=최근 완료년도, y2=전년도
+                if (dpsByYear[y2] > 0) {
+                    dividendGrowthRate = ((dpsByYear[y1] - dpsByYear[y2]) / dpsByYear[y2]) * 100;
+                }
+            } else if (completedYears.length === 1) {
+                // 완료 연도가 하나뿐이면 현재 연도 연율화해서 비교
+                const lastFullYear = completedYears[0];
+                const curEvs = events.filter((ev) => new Date(ev.exDate).getFullYear() === nowYear);
+                if (curEvs.length > 0 && dpsByYear[lastFullYear] > 0) {
+                    const curDPS = curEvs.reduce((acc, ev) => acc + (Number(ev.dps) || 0), 0);
+                    const monthsSoFar = new Date().getMonth() + 1;
+                    const annualized = curDPS * (12 / monthsSoFar);
+                    dividendGrowthRate = ((annualized - dpsByYear[lastFullYear]) / dpsByYear[lastFullYear]) * 100;
+                }
+            }
+        }
+
         return {
             ticker: (quote.symbol || resolvedSymbol).toUpperCase(),
             name,
@@ -1400,7 +1461,7 @@ function DashboardApp() {
             dividendYield: Number(dividendYield.toFixed(2)),
             annualDPS: Number(annualDPS) || 0,
             frequency,
-            dividendGrowthRate: 0,
+            dividendGrowthRate: Number(dividendGrowthRate.toFixed(1)),
             taxRate,
             sector,
             description: `${name} · Yahoo Finance 실시간 데이터`,
