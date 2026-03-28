@@ -752,67 +752,73 @@ function DividendTable({ stock }) {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                        {stock.events.map((ev, i) => {
-                            const exDd = dDay(ev.exDate);
-                            const payDd = dDay(ev.payDate);
-                            const exPast = exDd < 0;
-                            const payPast = payDd < 0;
-                            let status, statusCls;
-                            if (payPast) {
-                                status = '지급 완료';
-                                statusCls = 'text-slate-400 dark:text-slate-500';
-                            } else if (exPast) {
-                                status = '지급 대기';
-                                statusCls = 'text-amber-600 dark:text-amber-400';
-                            } else if (exDd === 0) {
-                                status = '오늘 배당락!';
-                                statusCls = 'text-orange-600 font-bold';
-                            } else {
-                                status = 'D-' + exDd;
-                                statusCls = 'text-indigo-600 dark:text-indigo-400 font-semibold';
-                            }
-                            return (
-                                <tr
-                                    key={i}
-                                    className={
-                                        'hover:bg-slate-50 dark:hover:bg-slate-700/40 transition-colors ' +
-                                        (payPast ? 'opacity-50' : '')
-                                    }
-                                >
-                                    <td className="px-4 py-3 text-slate-400 font-mono text-xs">{i + 1}</td>
-                                    <td className="px-4 py-3">
-                                        <span
-                                            className={
-                                                'font-semibold ' +
-                                                (exPast ? 'text-slate-400' : 'text-red-600 dark:text-red-400')
-                                            }
-                                        >
-                                            {ev.exDate}
-                                        </span>
-                                        {!exPast && exDd > 0 && (
-                                            <span className="ml-1.5 text-xs text-slate-400">D-{exDd}</span>
-                                        )}
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        <span
-                                            className={
-                                                'font-semibold ' +
-                                                (payPast ? 'text-slate-400' : 'text-emerald-600 dark:text-emerald-400')
-                                            }
-                                        >
-                                            {ev.payDate}
-                                        </span>
-                                        {!payPast && payDd > 0 && (
-                                            <span className="ml-1.5 text-xs text-slate-400">D-{payDd}</span>
-                                        )}
-                                    </td>
-                                    <td className="px-4 py-3 font-mono font-semibold text-slate-700 dark:text-slate-300">
-                                        {fmtNum(ev.dps, stock.currency)}
-                                    </td>
-                                    <td className={'px-4 py-3 text-xs ' + statusCls}>{status}</td>
-                                </tr>
-                            );
-                        })}
+                        {[...stock.events]
+                            .sort((a, b) => new Date(b.exDate) - new Date(a.exDate))
+                            .map((ev, i) => {
+                                const exDd = dDay(ev.exDate);
+                                const payDd = dDay(ev.payDate);
+                                const exPast = exDd < 0;
+                                const payPast = payDd < 0;
+                                let status, statusCls;
+                                if (payPast) {
+                                    status = '지급 완료';
+                                    statusCls = 'text-slate-400 dark:text-slate-500';
+                                } else if (exPast) {
+                                    status = '지급 대기';
+                                    statusCls = 'text-amber-600 dark:text-amber-400';
+                                } else if (exDd === 0) {
+                                    status = '오늘 배당락!';
+                                    statusCls = 'text-orange-600 font-bold';
+                                } else {
+                                    status = 'D-' + exDd;
+                                    statusCls = 'text-indigo-600 dark:text-indigo-400 font-semibold';
+                                }
+                                return (
+                                    <tr
+                                        key={i}
+                                        className={
+                                            'hover:bg-slate-50 dark:hover:bg-slate-700/40 transition-colors ' +
+                                            (payPast ? 'opacity-50' : '')
+                                        }
+                                    >
+                                        <td className="px-4 py-3 text-slate-400 font-mono text-xs">
+                                            {stock.events.length - i}
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <span
+                                                className={
+                                                    'font-semibold ' +
+                                                    (exPast ? 'text-slate-400' : 'text-red-600 dark:text-red-400')
+                                                }
+                                            >
+                                                {ev.exDate}
+                                            </span>
+                                            {!exPast && exDd > 0 && (
+                                                <span className="ml-1.5 text-xs text-slate-400">D-{exDd}</span>
+                                            )}
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <span
+                                                className={
+                                                    'font-semibold ' +
+                                                    (payPast
+                                                        ? 'text-slate-400'
+                                                        : 'text-emerald-600 dark:text-emerald-400')
+                                                }
+                                            >
+                                                {ev.payDate}
+                                            </span>
+                                            {!payPast && payDd > 0 && (
+                                                <span className="ml-1.5 text-xs text-slate-400">D-{payDd}</span>
+                                            )}
+                                        </td>
+                                        <td className="px-4 py-3 font-mono font-semibold text-slate-700 dark:text-slate-300">
+                                            {fmtNum(ev.dps, stock.currency)}
+                                        </td>
+                                        <td className={'px-4 py-3 text-xs ' + statusCls}>{status}</td>
+                                    </tr>
+                                );
+                            })}
                     </tbody>
                 </table>
             </div>
