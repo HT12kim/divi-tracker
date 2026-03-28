@@ -19,7 +19,7 @@ import {
     BookmarkPlus,
     AlertCircle,
 } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 // ─────────────────────────────────────────────
 // 2. 프리셋 티커 (표시용)
 // ─────────────────────────────────────────────
@@ -336,7 +336,7 @@ function WatchlistPanel({ watchlist, selected, onSelect, onRemove }) {
                     관심 목록
                 </h2>
                 <div
-                      className="flex flex-col items-center justify-center gap-2 rounded-2xl
+                    className="flex flex-col items-center justify-center gap-2 rounded-2xl
                 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-dashed border-slate-200/90 dark:border-slate-800/70
                 shadow-lg shadow-black/5 py-10 px-4 text-center"
                 >
@@ -367,7 +367,7 @@ function WatchlistPanel({ watchlist, selected, onSelect, onRemove }) {
                             className={
                                 'group relative rounded-xl p-3 cursor-pointer border transition-all bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl shadow-lg shadow-black/5 ' +
                                 (isActive
-                                    ? 'border-orange-300/80 shadow-orange-200/60'
+                                    ? 'border-orange-300/80 shadow-none dark:shadow-none'
                                     : 'border-slate-200/80 dark:border-slate-800 hover:border-orange-300 dark:hover:border-orange-500')
                             }
                             onClick={() => onSelect(s)}
@@ -449,7 +449,6 @@ function WatchlistPanel({ watchlist, selected, onSelect, onRemove }) {
 // 7. StockInfoHeader
 // ─────────────────────────────────────────────
 function StockInfoHeader({ stock }) {
-    const growthPositive = stock.dividendGrowthRate >= 0;
     return (
         <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/60 p-5 shadow-2xl shadow-black/10">
             <div className="flex flex-wrap items-start gap-x-6 gap-y-3">
@@ -502,12 +501,6 @@ function StockInfoHeader({ stock }) {
                         value={(stock.taxRate * 100).toFixed(1) + '%'}
                         icon={<Info className="w-3.5 h-3.5" />}
                         highlight="amber"
-                    />
-                    <MetricChip
-                        label="배당 성장률 (YoY)"
-                        value={(growthPositive ? '+' : '') + stock.dividendGrowthRate.toFixed(1) + '%'}
-                        icon={<TrendingUp className="w-3.5 h-3.5" />}
-                        highlight={growthPositive ? 'emerald' : 'red'}
                     />
                 </div>
             </div>
@@ -628,9 +621,9 @@ function DividendTimeline({ stock }) {
                                             )}
                                         </div>
 
-                                        <div className="p-1.5 flex flex-col gap-1.5 min-h-[80px]">
+                                        <div className="p-1.5 flex flex-col gap-1 min-h-[96px]">
                                             {!hasEvent && (
-                                                <div className="flex items-center justify-center h-full min-h-[60px]">
+                                                <div className="flex items-center justify-center h-full">
                                                     <span className="text-xs text-slate-300 dark:text-slate-600">
                                                         —
                                                     </span>
@@ -658,28 +651,11 @@ function DividendTimeline({ stock }) {
                                                         <p className="text-[9px] text-red-500 dark:text-red-400">
                                                             {fmtNum(ev.dps, stock.currency)}
                                                         </p>
-                                                        <p
-                                                            className={
-                                                                'text-[9px] font-semibold ' +
-                                                                (dd === 0
-                                                                    ? 'text-orange-600'
-                                                                    : isPast
-                                                                      ? 'text-slate-400'
-                                                                      : 'text-red-500 dark:text-red-400')
-                                                            }
-                                                        >
-                                                            {dd === 0
-                                                                ? '오늘!'
-                                                                : isPast
-                                                                  ? Math.abs(dd) + 'd ago'
-                                                                  : 'D-' + dd}
-                                                        </p>
                                                     </div>
                                                 );
                                             })}
                                             {monthData.pay.map((ev, i) => {
-                                                const dd = dDay(ev.payDate);
-                                                const isPast = dd < 0;
+                                                const isPast = dDay(ev.payDate) < 0;
                                                 return (
                                                     <div
                                                         key={'pay' + i}
@@ -698,16 +674,6 @@ function DividendTimeline({ stock }) {
                                                         </p>
                                                         <p className="text-[9px] text-emerald-500 dark:text-emerald-400">
                                                             {fmtNum(ev.dps, stock.currency)}
-                                                        </p>
-                                                        <p
-                                                            className={
-                                                                'text-[9px] font-semibold ' +
-                                                                (isPast
-                                                                    ? 'text-slate-400'
-                                                                    : 'text-emerald-600 dark:text-emerald-400')
-                                                            }
-                                                        >
-                                                            {isPast ? Math.abs(dd) + 'd ago' : 'D-' + dd}
                                                         </p>
                                                     </div>
                                                 );
@@ -870,7 +836,7 @@ function DividendCalculator({ stock, exchangeRate = DEFAULT_EXCHANGE_RATE }) {
             <div className="flex items-center gap-3 mb-4">
                 <label className="text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap">보유 수량</label>
                 <div
-                        className="flex-1 flex items-center gap-2 px-3 py-2 rounded-xl
+                    className="flex-1 flex items-center gap-2 px-3 py-2 rounded-xl
                     bg-white/60 dark:bg-slate-800/70 backdrop-blur border border-slate-200/80 dark:border-slate-700
           focus-within:ring-2 focus-within:ring-indigo-500 transition-all"
                 >
@@ -972,12 +938,11 @@ function DpsBarChart({ stock }) {
     const { dark } = useTheme();
     const axisColor = dark ? '#94a3b8' : '#64748b';
     const gridColor = dark ? '#1e293b' : '#f1f5f9';
-    const tooltipBg = dark ? '#1e293b' : '#ffffff';
-    const tooltipBorder = dark ? '#334155' : '#e2e8f0';
+    const tooltipBg = dark ? '#0f172a' : '#ffffff';
+    const tooltipBorder = dark ? '#1f2937' : '#e2e8f0';
 
     const data = stock.events.map((ev, i) => ({
         label: `${i + 1}회 (${fmtMD(ev.exDate)})`,
-        dps: ev.dps,
         net: parseFloat((ev.dps * (1 - stock.taxRate)).toFixed(4)),
     }));
 
@@ -990,10 +955,7 @@ function DpsBarChart({ stock }) {
             >
                 <p className="font-semibold mb-1">{label}</p>
                 <p className="text-indigo-500 dark:text-indigo-400">
-                    세전: {fmtNum(payload[0] && payload[0].value, stock.currency)}
-                </p>
-                <p className="text-emerald-500 dark:text-emerald-400">
-                    세후: {fmtNum(payload[1] && payload[1].value, stock.currency)}
+                    세후: {fmtNum(payload[0] && payload[0].value, stock.currency)}
                 </p>
             </div>
         );
@@ -1003,22 +965,12 @@ function DpsBarChart({ stock }) {
         <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 p-5 shadow-xl">
             <div className="flex items-center gap-2 mb-4">
                 <BarChart2 className="w-4 h-4 text-indigo-500" />
-                <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">회차별 주당 배당금 (DPS)</h2>
-                <div className="ml-auto flex items-center gap-3 text-xs text-slate-400">
-                    <span className="flex items-center gap-1">
-                        <span className="w-2.5 h-2.5 rounded-sm bg-indigo-400 inline-block" />
-                        세전
-                    </span>
-                    <span className="flex items-center gap-1">
-                        <span className="w-2.5 h-2.5 rounded-sm bg-emerald-400 inline-block" />
-                        세후
-                    </span>
-                </div>
+                <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">회차별 주당 배당금 (세후)</h2>
             </div>
-            <ResponsiveContainer width="100%" height={160}>
-                <BarChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }} barSize={18} barGap={3}>
+            <ResponsiveContainer width="100%" height={180}>
+                <LineChart data={data} margin={{ top: 6, right: 12, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
-                    <XAxis dataKey="label" tick={{ fill: axisColor, fontSize: 10 }} axisLine={false} tickLine={false} />
+                    <XAxis dataKey="label" tick={{ fill: axisColor, fontSize: 10 }} axisLine={false} tickLine={false} interval={0} angle={-20} textAnchor="end" height={55} />
                     <YAxis
                         tick={{ fill: axisColor, fontSize: 10 }}
                         axisLine={false}
@@ -1026,10 +978,9 @@ function DpsBarChart({ stock }) {
                         tickFormatter={(v) => fmtNum(v, stock.currency)}
                         width={65}
                     />
-                    <Tooltip content={<CustomTooltip />} cursor={{ fill: dark ? '#1e293b66' : '#f1f5f966' }} />
-                    <Bar dataKey="dps" fill="#818cf8" radius={[4, 4, 0, 0]} name="세전" />
-                    <Bar dataKey="net" fill="#10b981" radius={[4, 4, 0, 0]} name="세후" />
-                </BarChart>
+                    <Tooltip content={<CustomTooltip />} cursor={{ stroke: dark ? '#94a3b8' : '#94a3b8', strokeDasharray: '3 3' }} />
+                    <Line type="monotone" dataKey="net" stroke="#10b981" strokeWidth={2.5} dot={{ r: 3, strokeWidth: 1.5, fill: '#ffffff' }} activeDot={{ r: 5 }} name="세후" />
+                </LineChart>
             </ResponsiveContainer>
         </div>
     );
@@ -1437,47 +1388,6 @@ function DashboardApp() {
             quoteType,
         );
 
-        // YoY 배당 성장률 계산 (연도별 DPS 합계 비교, 현재 연도는 연율화)
-        let dividendGrowthRate = 0;
-        {
-            const now = new Date();
-            const nowYear = now.getFullYear();
-            const dpsByYear = {};
-            for (const ev of events) {
-                const yr = parseDate(ev.exDate).getFullYear();
-                if (!Number.isNaN(yr)) dpsByYear[yr] = (dpsByYear[yr] || 0) + (Number(ev.dps) || 0);
-            }
-
-            const years = Object.keys(dpsByYear)
-                .map(Number)
-                .filter((y) => !Number.isNaN(y))
-                .sort((a, b) => b - a);
-
-            const annualized = (year) => {
-                const sum = dpsByYear[year] || 0;
-                if (year !== nowYear) return sum;
-                const month = Math.max(1, Math.min(12, now.getMonth() + 1));
-                return sum * (12 / month);
-            };
-
-            if (years.length >= 2) {
-                const latest = years[0];
-                const prev = years[1];
-                const base = annualized(prev); // prev는 완료 연도일 가능성이 높음
-                const cmp = annualized(latest);
-                if (base > 0 && Number.isFinite(cmp)) {
-                    dividendGrowthRate = ((cmp - base) / base) * 100;
-                }
-            } else if (years.length === 1) {
-                const onlyYear = years[0];
-                if (onlyYear !== nowYear) {
-                    // 비교할 상대가 없으면 유지 (0)
-                } else {
-                    // 현재 연도만 있는 경우: 직전 연도 배당 없음 → 0 유지
-                }
-            }
-        }
-
         return {
             ticker: (quote.symbol || resolvedSymbol).toUpperCase(),
             name,
@@ -1489,7 +1399,6 @@ function DashboardApp() {
             dividendYield: Number(dividendYield.toFixed(2)),
             annualDPS: Number(annualDPS) || 0,
             frequency,
-            dividendGrowthRate: Number(dividendGrowthRate.toFixed(1)),
             taxRate,
             sector,
             description: `${name} · Yahoo Finance 실시간 데이터`,
@@ -1593,14 +1502,14 @@ function DashboardApp() {
     return (
         <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 via-white to-slate-200 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 relative overflow-hidden">
             <div className="pointer-events-none absolute inset-0">
-                <div className="absolute -top-20 -left-24 w-72 h-72 bg-white/30 dark:bg-indigo-500/10 rounded-full blur-3xl" />
-                <div className="absolute -bottom-16 -right-16 w-80 h-80 bg-orange-200/30 dark:bg-amber-500/10 rounded-full blur-3xl" />
+                <div className="absolute -top-16 -left-16 w-60 h-60 bg-white/30 dark:bg-indigo-500/10 rounded-full blur-3xl" />
+                <div className="absolute -bottom-14 -right-14 w-64 h-64 bg-orange-200/30 dark:bg-amber-500/10 rounded-full blur-3xl" />
             </div>
             <header
                 className="sticky top-0 z-40 bg-white/60 dark:bg-slate-900/50 backdrop-blur-xl
             border-b border-slate-200/80 dark:border-slate-800/60 shadow-lg"
             >
-                <div className="max-w-screen-xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-4">
+                <div className="max-w-screen-lg w-full mx-auto px-3 sm:px-6 py-2.5 flex items-center gap-3 sm:gap-4">
                     <div
                         className="flex items-center gap-2.5 flex-shrink-0 cursor-pointer select-none"
                         onClick={() => window.location.reload()}
@@ -1634,12 +1543,12 @@ function DashboardApp() {
                 </div>
             </header>
 
-            <main className="flex-1 max-w-screen-xl w-full mx-auto px-4 sm:px-6 py-4 sm:py-6 relative">
+            <main className="flex-1 max-w-screen-lg w-full mx-auto px-3 sm:px-6 py-3 sm:py-6 relative">
                 <div
-                    className="absolute inset-0 rounded-[32px] bg-white/20 dark:bg-slate-900/20 blur-3xl"
+                    className="absolute inset-0 rounded-[24px] bg-white/18 dark:bg-slate-900/18 blur-3xl"
                     aria-hidden
                 />
-                <div className="relative rounded-[28px] border border-slate-200/80 dark:border-slate-800/60 bg-white/60 dark:bg-slate-900/50 backdrop-blur-2xl shadow-2xl shadow-black/10 p-4 sm:p-6">
+                <div className="relative rounded-[22px] border border-slate-200/80 dark:border-slate-800/60 bg-white/70 dark:bg-slate-900/55 backdrop-blur-2xl shadow-2xl shadow-black/10 p-3 sm:p-6">
                     <div className="flex flex-col xl:flex-row gap-5 items-start">
                         <WatchlistPanel
                             watchlist={watchlist}
