@@ -8,7 +8,9 @@ export const handler = async (event) => {
         if (!q) {
             return { statusCode: 400, body: JSON.stringify({ error: 'q required' }) };
         }
-        const data = await yahooFinance.search(q, { quotesCount: 6, newsCount: 0 });
+        const region = event.queryStringParameters?.region || 'KR';
+        const lang = event.queryStringParameters?.lang || 'ko-KR';
+        const data = await yahooFinance.search(q, { quotesCount: 10, newsCount: 0, region, lang });
         return {
             statusCode: 200,
             headers: { 'Content-Type': 'application/json' },

@@ -1254,12 +1254,14 @@ function DashboardApp() {
         return 'annual';
     };
 
-    const normalizeSymbol = (raw) => {
-        let s = raw.trim().toUpperCase();
-        if (s.startsWith('KRX:')) s = s.replace(/^KRX:/, '');
-        if (/^[0-9]{6}$/.test(s)) return `${s}.KS`;
-        return s;
+    const normalizeKRSymbol = (s) => {
+        let sym = s.trim().toUpperCase();
+        if (/^KRX:/i.test(sym)) sym = sym.replace(/^KRX:/i, '');
+        if (/^[0-9]{6}$/.test(sym)) return `${sym}.KS`;
+        return sym;
     };
+
+    const normalizeSymbol = (raw) => normalizeKRSymbol(raw);
 
     const fetchLiveStock = useCallback(async (symbolInput) => {
         const raw = symbolInput.trim();
@@ -1269,13 +1271,24 @@ function DashboardApp() {
         let resolvedSymbol = normalized;
         if (/[가-힣]/.test(raw) || /\s/.test(raw)) {
             try {
-                const searchRes = await fetch(`/api/search?q=${encodeURIComponent(raw)}`);
+                const searchRes = await fetch(`/api/search?q=${encodeURIComponent(raw)}&lang=ko-KR&region=KR`);
                 if (searchRes.ok) {
                     const data = await searchRes.json();
-                    const cand = (data.quotes || []).find((q) => q.symbol && q.quoteType !== 'CRYPTOCURRENCY');
-                    if (cand && cand.symbol) {
-                        resolvedSymbol = normalizeSymbol(cand.symbol);
-                    }
+                    const picks = (data.quotes || []).filter((q) => q.symbol && q.quoteType !== 'CRYPTOCURRENCY');
+                    const ranked = picks.sort((a, b) => {
+                        const score = (q) => {
+                            const sym = q.symbol?.toUpperCase() || '';
+                            const ex = (q.exchDisp || q.exchange || '').toUpperCase();
+                            let s = 0;
+                            if (/\.KS$/.test(sym) || ex.includes('KSC') || ex.includes('KOSPI')) s += 3;
+                            if (/\.KQ$/.test(sym) || ex.includes('KOSDAQ')) s += 2;
+                            if (/^[0-9]{6}$/.test(sym) || sym.includes('KRX')) s += 1.5;
+                            return s;
+                        };
+                        return score(b) - score(a);
+                    });
+                    const cand = ranked[0];
+                    if (cand && cand.symbol) resolvedSymbol = normalizeSymbol(cand.symbol);
                 }
             } catch (_) {}
         }
@@ -1312,14 +1325,15 @@ function DashboardApp() {
         // yahoo-finance2는 소수(0.05 = 5%) 반환 → 항상 *100
         let dividendYield = rawYield != null ? rawYield * 100 : price && annualDPS ? (annualDPS / price) * 100 : 0;
         const name = quote.longName || quote.shortName || quote.symbol || resolvedSymbol.toUpperCase();
+        const baseSymbol = normalized;
         const aliases = [
             quote.shortName,
             quote.longName,
             quote.symbol,
             quote.quoteType,
             symbolInput,
-            symbol.replace(/\.KS$/, ''),
-            symbol.replace(/\.KQ$/, ''),
+            baseSymbol.replace(/\.KS$/, ''),
+            baseSymbol.replace(/\.KQ$/, ''),
             resolvedSymbol,
         ]
             .filter(Boolean)
