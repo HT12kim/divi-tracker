@@ -1245,6 +1245,11 @@ function DashboardApp() {
 
     const normalizeSymbol = (raw) => normalizeKRSymbol(raw);
 
+    const extractSixDigit = (s) => {
+        const m = (s || '').match(/(\d{6})/);
+        return m ? m[1] : null;
+    };
+
     const fetchLiveStock = useCallback(async (symbolInput) => {
         const raw = symbolInput.trim();
         const normalized = normalizeSymbol(raw);
@@ -1281,8 +1286,22 @@ function DashboardApp() {
             } catch (_) {}
         }
 
-        const symbolCandidates = [resolvedSymbol];
-        if (resolvedSymbol.endsWith('.KS')) symbolCandidates.push(resolvedSymbol.replace(/\.KS$/, '.KQ'));
+        const codeCandidate = extractSixDigit(raw) || extractSixDigit(normalized);
+        const symbolCandidates = [];
+        const pushCandidate = (sym) => {
+            if (!sym) return;
+            const cleaned = sym.trim().toUpperCase();
+            if (!/[A-Z0-9]/.test(cleaned)) return;
+            if (!symbolCandidates.includes(cleaned)) symbolCandidates.push(cleaned);
+        };
+
+        pushCandidate(resolvedSymbol);
+        if (resolvedSymbol.endsWith('.KS')) pushCandidate(resolvedSymbol.replace(/\.KS$/, '.KQ'));
+        if (resolvedSymbol.endsWith('.KQ')) pushCandidate(resolvedSymbol.replace(/\.KQ$/, '.KS'));
+        if (codeCandidate) {
+            pushCandidate(`${codeCandidate}.KS`);
+            pushCandidate(`${codeCandidate}.KQ`);
+        }
 
         let quote = null;
         for (const sym of symbolCandidates) {
@@ -1349,8 +1368,8 @@ function DashboardApp() {
             krShortName,
             krLongName,
         ]
-            .filter(Boolean)
-            .map((v) => v.toString());
+            .map((v) => (v == null ? '' : v.toString().trim()))
+            .filter((v) => v.length > 0);
         const quoteType = quote.quoteType || '';
         const sector = quote.market || quoteType || 'N/A';
 
@@ -1418,34 +1437,43 @@ function DashboardApp() {
             quoteType,
         );
 
-        // YoY 배당 성장률 계산 (연도별 DPS 합계 비교)
+        // YoY 배당 성장률 계산 (연도별 DPS 합계 비교, 현재 연도는 연율화)
         let dividendGrowthRate = 0;
-        if (events.length >= 2) {
-            const nowYear = new Date().getFullYear();
+        {
+            const now = new Date();
+            const nowYear = now.getFullYear();
             const dpsByYear = {};
             for (const ev of events) {
-                const yr = new Date(ev.exDate).getFullYear();
-                if (!isNaN(yr)) dpsByYear[yr] = (dpsByYear[yr] || 0) + (Number(ev.dps) || 0);
+                const yr = parseDate(ev.exDate).getFullYear();
+                if (!Number.isNaN(yr)) dpsByYear[yr] = (dpsByYear[yr] || 0) + (Number(ev.dps) || 0);
             }
-            // 완전히 지난 연도만 사용 (현재 연도 제외)
-            const completedYears = Object.keys(dpsByYear)
+
+            const years = Object.keys(dpsByYear)
                 .map(Number)
-                .filter((y) => y < nowYear)
+                .filter((y) => !Number.isNaN(y))
                 .sort((a, b) => b - a);
-            if (completedYears.length >= 2) {
-                const [y1, y2] = completedYears; // y1=최근 완료년도, y2=전년도
-                if (dpsByYear[y2] > 0) {
-                    dividendGrowthRate = ((dpsByYear[y1] - dpsByYear[y2]) / dpsByYear[y2]) * 100;
+
+            const annualized = (year) => {
+                const sum = dpsByYear[year] || 0;
+                if (year !== nowYear) return sum;
+                const month = Math.max(1, Math.min(12, now.getMonth() + 1));
+                return sum * (12 / month);
+            };
+
+            if (years.length >= 2) {
+                const latest = years[0];
+                const prev = years[1];
+                const base = annualized(prev); // prev는 완료 연도일 가능성이 높음
+                const cmp = annualized(latest);
+                if (base > 0 && Number.isFinite(cmp)) {
+                    dividendGrowthRate = ((cmp - base) / base) * 100;
                 }
-            } else if (completedYears.length === 1) {
-                // 완료 연도가 하나뿐이면 현재 연도 연율화해서 비교
-                const lastFullYear = completedYears[0];
-                const curEvs = events.filter((ev) => new Date(ev.exDate).getFullYear() === nowYear);
-                if (curEvs.length > 0 && dpsByYear[lastFullYear] > 0) {
-                    const curDPS = curEvs.reduce((acc, ev) => acc + (Number(ev.dps) || 0), 0);
-                    const monthsSoFar = new Date().getMonth() + 1;
-                    const annualized = curDPS * (12 / monthsSoFar);
-                    dividendGrowthRate = ((annualized - dpsByYear[lastFullYear]) / dpsByYear[lastFullYear]) * 100;
+            } else if (years.length === 1) {
+                const onlyYear = years[0];
+                if (onlyYear !== nowYear) {
+                    // 비교할 상대가 없으면 유지 (0)
+                } else {
+                    // 현재 연도만 있는 경우: 직전 연도 배당 없음 → 0 유지
                 }
             }
         }
