@@ -1012,7 +1012,7 @@ function DpsBarChart({ stock }) {
 // ─────────────────────────────────────────────
 // 12. EmptyState
 // ─────────────────────────────────────────────
-function EmptyState() {
+function EmptyState({ onPickTicker }) {
     return (
         <div className="flex-1">
             <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/70 shadow-sm p-8">
@@ -1060,12 +1060,14 @@ function EmptyState() {
                         <div className="flex flex-wrap gap-2 pt-2">
                             <span className="text-xs text-slate-400 w-full">추천 티커</span>
                             {PRESET_TICKERS.map((t) => (
-                                <span
+                                <button
                                     key={t}
-                                    className="px-3 py-1 rounded-full text-xs font-medium bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200"
+                                    type="button"
+                                    onClick={() => onPickTicker && onPickTicker(t)}
+                                    className="px-3 py-1 rounded-full text-xs font-medium bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:border-orange-300 dark:hover:border-orange-500 hover:text-orange-600 dark:hover:text-orange-300 transition-colors"
                                 >
                                     {t}
-                                </span>
+                                </button>
                             ))}
                         </div>
                     </div>
@@ -1512,7 +1514,7 @@ function DashboardApp() {
                         <StockDetailView stock={selected} exchangeRate={exchangeRate} />
                     ) : (
                         <div className="flex-1">
-                            <EmptyState />
+                            <EmptyState onPickTicker={handleFetchLive} />
                         </div>
                     )}
                 </div>
