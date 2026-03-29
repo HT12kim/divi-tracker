@@ -30,6 +30,8 @@ const CACHE_VERSION = 3; // 버전 올리면 모든 stale 캐시 자동 파기
 // 3. 공용 상수
 // ─────────────────────────────────────────────
 const DEFAULT_EXCHANGE_RATE = 1350;
+const KSD_SERVICE_KEY = '243556297b1ecc0d67d59692a5d44e5ae4bba0cce32f0730e7c4e583b5f8fd07';
+const KSD_DIVINFO_URL = 'http://api.seibro.or.kr/openapi/service/CorpSvc/getDivInfo';
 const TODAY = new Date();
 const CURRENT_YEAR = TODAY.getFullYear();
 const CURRENT_MONTH = TODAY.getMonth();
@@ -95,6 +97,8 @@ function SearchBar({ onSelect, onFetch, liveCache }) {
     const [suggestions, setSuggestions] = useState([]);
     const [loadingSuggest, setLoadingSuggest] = useState(false);
     const [errorSuggest, setErrorSuggest] = useState(null);
+    const [krStocks, setKrStocks] = useState([]);
+    const [krEtfs, setKrEtfs] = useState([]);
     const wrapRef = useRef(null);
     const norm = (v) => v.trim().toLowerCase();
     const q = norm(query.trim());
@@ -104,6 +108,22 @@ function SearchBar({ onSelect, onFetch, liveCache }) {
         const t = setTimeout(() => setDebounced(query.trim()), 250);
         return () => clearTimeout(t);
     }, [query]);
+
+    // 한국 종목 목록 1회 로드
+    useEffect(() => {
+        fetch('/api/kr-stocks')
+            .then((r) => (r.ok ? r.json() : []))
+            .then((data) => setKrStocks(Array.isArray(data) ? data : []))
+            .catch(() => {});
+    }, []);
+
+    // 한국 ETF 목록 1회 로드
+    useEffect(() => {
+        fetch('/api/kr-etfs')
+            .then((r) => (r.ok ? r.json() : []))
+            .then((data) => setKrEtfs(Array.isArray(data) ? data : []))
+            .catch(() => {});
+    }, []);
 
     // 드롭다운 외부 클릭 시 닫기
     useEffect(() => {
@@ -119,6 +139,12 @@ function SearchBar({ onSelect, onFetch, liveCache }) {
         if (debounced.length < 2) {
             setSuggestions([]);
             setErrorSuggest(null);
+            return;
+        }
+        // 한글 입력이면 로컬 KR 목록으로만 처리, Yahoo 호출 생략
+        if (/[가-힣]/.test(debounced)) {
+            setSuggestions([]);
+            setLoadingSuggest(false);
             return;
         }
         const controller = new AbortController();
@@ -168,8 +194,62 @@ function SearchBar({ onSelect, onFetch, liveCache }) {
                   );
               });
 
+    // 로컬 CSV 검색 — 한글(종목명·단축명) / 영문(단축명·영문명) / 숫자(코드) 모두 지원
+    const isKoreanQuery = q.length > 0 && /[가-힣]/.test(q);
+    const isLocalSearch = q.length >= 2;
+    const qUp = q.toUpperCase();
+    const isCodeQuery = /^\d{1,6}$/.test(q);
+
+    const localKrResults = isLocalSearch
+        ? (() => {
+              const filterFn = (s) => {
+                  // isKoreanQuery여도 영문 접두사("ACE", "TIGER" 등) 포함 가능 → 항상 대소문자 무시 비교
+                  if (isKoreanQuery)
+                      return (s.name || '').toLowerCase().includes(q) || (s.shortName || '').toLowerCase().includes(q);
+                  if (isCodeQuery) return s.code.startsWith(q);
+                  // 순수 영문/숫자: shortName·engName 대소문자 무시
+                  return (
+                      (s.shortName || '').toUpperCase().includes(qUp) || (s.engName || '').toUpperCase().includes(qUp)
+                  );
+              };
+              const sortScore = (s) => {
+                  // q는 항상 소문자, sn/n도 소문자로 통일해 대소문자 무관 정렬
+                  const sn = (s.shortName || '').toLowerCase();
+                  const cmp = isKoreanQuery ? q : q; // q already lowercase
+                  if (sn === cmp) return 0;
+                  if (sn.startsWith(cmp)) return 1;
+                  if (sn.includes(cmp)) return 2;
+                  const n = (s.name || '').toLowerCase();
+                  return n.includes(cmp) ? 3 : 4;
+              };
+              return [...krStocks, ...krEtfs]
+                  .filter(filterFn)
+                  .sort((a, b) => {
+                      const d = sortScore(a) - sortScore(b);
+                      return d !== 0 ? d : (a.shortName || '').length - (b.shortName || '').length;
+                  })
+                  .slice(0, 20)
+                  .map((s) => ({
+                      ticker: s.code + '.KS',
+                      name: s.shortName || s.name,
+                      _fullName: s.name,
+                      quoteType: s.type === 'ETF' ? 'ETF' : '주식',
+                      exchange: s.assetType || s.market,
+                      _source: 'krLocal',
+                  }));
+          })()
+        : [];
+
     const mergedResults = [];
     const seen = new Set();
+
+    // 로컬 한국 종목 최우선
+    localKrResults.forEach((s) => {
+        const t = s.ticker.toUpperCase();
+        if (seen.has(t)) return;
+        seen.add(t);
+        mergedResults.push(s);
+    });
 
     cacheResults.forEach((s) => {
         const t = s.ticker.toUpperCase();
@@ -268,7 +348,7 @@ function SearchBar({ onSelect, onFetch, liveCache }) {
                         <div className="px-4 py-3 text-sm text-slate-400 dark:text-slate-500">검색 결과 없음</div>
                     )}
                     {mergedResults.map((s) => {
-                        const isSuggestion = s._source === 'suggestion';
+                        const isSuggestion = s._source === 'suggestion' || s._source === 'krLocal';
                         const next = !isSuggestion ? nextExDate(s) : null;
                         const dd = next ? dDay(next.exDate) : null;
                         const yieldText =
@@ -300,10 +380,12 @@ function SearchBar({ onSelect, onFetch, liveCache }) {
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
-                                        {s.ticker}
+                                        {s._source === 'krLocal' ? s.name : s.ticker}
                                     </p>
                                     <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                                        {s.name || s.longName || s.shortName || s.exchange || ''}
+                                        {s._source === 'krLocal'
+                                            ? s.ticker
+                                            : s.name || s.longName || s.shortName || s.exchange || ''}
                                     </p>
                                 </div>
                                 <div className="text-right flex-shrink-0">
@@ -311,8 +393,25 @@ function SearchBar({ onSelect, onFetch, liveCache }) {
                                         {yieldText}
                                     </p>
                                     <p className="text-xs text-slate-400 dark:text-slate-500">
-                                        {freqText}
-                                        {!isSuggestion && dd !== null && ' · D' + (dd >= 0 ? '-' : '+') + Math.abs(dd)}
+                                        {s._source === 'krLocal' ? (
+                                            <span
+                                                className={
+                                                    'px-1.5 py-0.5 rounded text-[10px] font-semibold ' +
+                                                    (s.quoteType === 'ETF'
+                                                        ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300'
+                                                        : 'bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300')
+                                                }
+                                            >
+                                                {s.quoteType}
+                                            </span>
+                                        ) : (
+                                            <>
+                                                {freqText}
+                                                {!isSuggestion &&
+                                                    dd !== null &&
+                                                    ' · D' + (dd >= 0 ? '-' : '+') + Math.abs(dd)}
+                                            </>
+                                        )}
                                     </p>
                                 </div>
                             </button>
@@ -970,7 +1069,16 @@ function DpsBarChart({ stock }) {
             <ResponsiveContainer width="100%" height={180}>
                 <LineChart data={data} margin={{ top: 6, right: 12, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
-                    <XAxis dataKey="label" tick={{ fill: axisColor, fontSize: 10 }} axisLine={false} tickLine={false} interval={0} angle={-20} textAnchor="end" height={55} />
+                    <XAxis
+                        dataKey="label"
+                        tick={{ fill: axisColor, fontSize: 10 }}
+                        axisLine={false}
+                        tickLine={false}
+                        interval={0}
+                        angle={-20}
+                        textAnchor="end"
+                        height={55}
+                    />
                     <YAxis
                         tick={{ fill: axisColor, fontSize: 10 }}
                         axisLine={false}
@@ -978,8 +1086,19 @@ function DpsBarChart({ stock }) {
                         tickFormatter={(v) => fmtNum(v, stock.currency)}
                         width={65}
                     />
-                    <Tooltip content={<CustomTooltip />} cursor={{ stroke: dark ? '#94a3b8' : '#94a3b8', strokeDasharray: '3 3' }} />
-                    <Line type="monotone" dataKey="net" stroke="#10b981" strokeWidth={2.5} dot={{ r: 3, strokeWidth: 1.5, fill: '#ffffff' }} activeDot={{ r: 5 }} name="세후" />
+                    <Tooltip
+                        content={<CustomTooltip />}
+                        cursor={{ stroke: dark ? '#94a3b8' : '#94a3b8', strokeDasharray: '3 3' }}
+                    />
+                    <Line
+                        type="monotone"
+                        dataKey="net"
+                        stroke="#10b981"
+                        strokeWidth={2.5}
+                        dot={{ r: 3, strokeWidth: 1.5, fill: '#ffffff' }}
+                        activeDot={{ r: 5 }}
+                        name="세후"
+                    />
                 </LineChart>
             </ResponsiveContainer>
         </div>
@@ -1201,6 +1320,80 @@ function DashboardApp() {
         return m ? m[1] : null;
     };
 
+    const parseKsdDate = (raw) => {
+        if (!raw) return null;
+        const s = String(raw).trim();
+        if (/^\d{8}$/.test(s)) return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+        return null;
+    };
+
+    const pickXmlText = (node, tags) => {
+        for (const t of tags) {
+            const el = node.getElementsByTagName(t)[0];
+            const val = el && el.textContent ? el.textContent.trim() : '';
+            if (val) return val;
+        }
+        return '';
+    };
+
+    const fetchKsdDividends = async (symbol) => {
+        if (typeof window === 'undefined' || !window.DOMParser) return [];
+
+        const today = new Date();
+        const baseDate = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
+        const baseSix = extractSixDigit(symbol) || '';
+        const variants = [baseSix, baseSix.replace(/^0+/, ''), baseSix.replace(/^0+/, '').replace(/0+$/, '')].filter(
+            (v) => v && /\d+/.test(v),
+        );
+        const candidates = Array.from(new Set(variants));
+        if (candidates.length === 0) return [];
+
+        for (const issucoCustno of candidates) {
+            const params = new URLSearchParams({
+                serviceKey: KSD_SERVICE_KEY,
+                pageNo: '1',
+                numOfRows: '60',
+                issucoCustno,
+                rgtStdDt: baseDate,
+            });
+
+            try {
+                const res = await fetch(`${KSD_DIVINFO_URL}?${params.toString()}`);
+                if (!res.ok) continue;
+                const xmlText = await res.text();
+                if (!xmlText) continue;
+
+                const xml = new window.DOMParser().parseFromString(xmlText, 'text/xml');
+                const totalCount = Number(xml.getElementsByTagName('totalCount')[0]?.textContent || 0);
+                const items = Array.from(xml.getElementsByTagName('item') || []);
+                if (!totalCount || items.length === 0) continue;
+
+                const parsed = items
+                    .map((item) => {
+                        const exRaw =
+                            pickXmlText(item, ['cashDvdnRcdDt', 'dvdnRcdDt', 'rgtStdDt', 'dvdnBasDt', 'basDt']) ||
+                            baseDate;
+                        const payRaw = pickXmlText(item, ['cashDvdnPayDt', 'dvdnPayDt', 'payDt', 'cashDvdnPayDe']);
+                        const dpsRaw = pickXmlText(item, ['cashDvdnPayAmt', 'cashDvdnAmt', 'dvdnAmt', 'dvdnRate']);
+                        const exDate = parseKsdDate(exRaw) || parseKsdDate(baseDate);
+                        const payDate = parseKsdDate(payRaw) || exDate || parseKsdDate(baseDate);
+                        const dps = Number(dpsRaw);
+                        if (!exDate || !payDate || Number.isNaN(dps)) return null;
+                        return { exDate, payDate, dps };
+                    })
+                    .filter(Boolean)
+                    .sort((a, b) => new Date(a.exDate) - new Date(b.exDate));
+
+                if (parsed.length > 0) return parsed;
+            } catch (err) {
+                console.warn('KSD fetch failed', err);
+            }
+        }
+
+        return [];
+    };
+
     const fetchLiveStock = useCallback(async (symbolInput) => {
         const raw = symbolInput.trim();
         const normalized = normalizeSymbol(raw);
@@ -1325,26 +1518,36 @@ function DashboardApp() {
         const sector = quote.market || quoteType || 'N/A';
 
         let events = [];
-        try {
-            const fromYear = CURRENT_YEAR - 2;
-            const divRes = await fetch(
-                `/api/dividends?symbol=${encodeURIComponent(resolvedSymbol)}&from=${fromYear}-01-01`,
-            );
-            if (divRes.ok) {
-                const divs = await divRes.json();
-                events = (divs || [])
-                    .map((ev) => {
-                        const dt = new Date(ev.date || ev.exDate || ev.payDate || Date.now());
-                        const exDate = dt.toISOString().slice(0, 10);
-                        const payDate = ev.payDate ? String(ev.payDate).slice(0, 10) : exDate;
-                        const dps = Number(ev.amount ?? ev.dividends ?? ev.cash ?? ev.value ?? 0);
-                        return { exDate, payDate, dps };
-                    })
-                    .filter((ev) => !Number.isNaN(ev.dps))
-                    .sort((a, b) => new Date(a.exDate) - new Date(b.exDate));
+        if (country === 'KR') {
+            try {
+                events = await fetchKsdDividends(resolvedSymbol);
+            } catch (err) {
+                console.warn('KSD dividend fetch failed', err);
             }
-        } catch (err) {
-            console.warn('dividend fetch failed', err);
+        }
+
+        if (events.length === 0) {
+            try {
+                const fromYear = CURRENT_YEAR - 2;
+                const divRes = await fetch(
+                    `/api/dividends?symbol=${encodeURIComponent(resolvedSymbol)}&from=${fromYear}-01-01`,
+                );
+                if (divRes.ok) {
+                    const divs = await divRes.json();
+                    events = (divs || [])
+                        .map((ev) => {
+                            const dt = new Date(ev.date || ev.exDate || ev.payDate || Date.now());
+                            const exDate = dt.toISOString().slice(0, 10);
+                            const payDate = ev.payDate ? String(ev.payDate).slice(0, 10) : exDate;
+                            const dps = Number(ev.amount ?? ev.dividends ?? ev.cash ?? ev.value ?? 0);
+                            return { exDate, payDate, dps };
+                        })
+                        .filter((ev) => !Number.isNaN(ev.dps))
+                        .sort((a, b) => new Date(a.exDate) - new Date(b.exDate));
+                }
+            } catch (err) {
+                console.warn('dividend fetch failed', err);
+            }
         }
 
         if (events.length === 0) {
@@ -1388,6 +1591,11 @@ function DashboardApp() {
             quoteType,
         );
 
+        const description =
+            country === 'KR'
+                ? `${name} · 한국예탁결제원 배당정보 + Yahoo Finance`
+                : `${name} · Yahoo Finance 실시간 데이터`;
+
         return {
             ticker: (quote.symbol || resolvedSymbol).toUpperCase(),
             name,
@@ -1401,7 +1609,7 @@ function DashboardApp() {
             frequency,
             taxRate,
             sector,
-            description: `${name} · Yahoo Finance 실시간 데이터`,
+            description,
             events,
         };
     }, []);

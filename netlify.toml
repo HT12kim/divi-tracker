@@ -9,6 +9,12 @@
   directory = "netlify/functions"
   node_bundler = "esbuild"
 
+[functions."kr-stocks"]
+  included_files = ["vite.config.csv"]
+
+[functions."kr-etfs"]
+  included_files = ["data_1131_*.csv"]
+
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/:splat"
