@@ -8,7 +8,7 @@ export const handler = async (event) => {
         if (!symbol) {
             return { statusCode: 400, body: JSON.stringify({ error: 'symbol required' }) };
         }
-        const period1 = event.queryStringParameters?.from || '2023-01-01';
+        const period1 = event.queryStringParameters?.from || '1990-01-01';
         const period2 = event.queryStringParameters?.to || new Date().toISOString().slice(0, 10);
         const data = await yahooFinance.historical(symbol, { period1, period2, events: 'dividends' });
         return {

@@ -24,7 +24,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 // 2. 프리셋 티커 (표시용)
 // ─────────────────────────────────────────────
 const PRESET_TICKERS = ['QQQ', 'SCHD', 'JEPI', 'JEPQ', 'AAPL', 'MSFT', 'KO', 'T', 'O', '005930', '000660'];
-const CACHE_VERSION = 3; // 버전 올리면 모든 stale 캐시 자동 파기
+const CACHE_VERSION = 5; // 버전 올리면 모든 stale 캐시 자동 파기
 
 // ─────────────────────────────────────────────
 // 3. 공용 상수
@@ -430,7 +430,7 @@ function WatchlistPanel({ watchlist, selected, onSelect, onRemove }) {
 
     if (watchlist.length === 0) {
         return (
-            <aside className="w-full xl:w-72 flex-shrink-0 flex flex-col gap-3 pt-1">
+            <aside className="w-full xl:w-72 flex-shrink-0 flex flex-col gap-3 pt-1 min-w-0">
                 <h2 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-1">
                     관심 목록
                 </h2>
@@ -451,7 +451,7 @@ function WatchlistPanel({ watchlist, selected, onSelect, onRemove }) {
     }
 
     return (
-        <aside className="w-full xl:w-72 flex-shrink-0 flex flex-col gap-2 pt-1">
+        <aside className="w-full xl:w-72 flex-shrink-0 flex flex-col gap-2 pt-1 min-w-0">
             <h2 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-1">
                 관심 목록 ({watchlist.length})
             </h2>
@@ -476,7 +476,9 @@ function WatchlistPanel({ watchlist, selected, onSelect, onRemove }) {
                                     <p
                                         className={
                                             'text-sm font-bold leading-tight ' +
-                                            (isActive ? 'text-white' : 'text-slate-800 dark:text-slate-100')
+                                            (isActive
+                                                ? 'text-slate-900 dark:text-white'
+                                                : 'text-slate-800 dark:text-slate-100')
                                         }
                                     >
                                         {s.ticker}
@@ -484,7 +486,9 @@ function WatchlistPanel({ watchlist, selected, onSelect, onRemove }) {
                                     <p
                                         className={
                                             'text-xs truncate ' +
-                                            (isActive ? 'text-indigo-200' : 'text-slate-500 dark:text-slate-400')
+                                            (isActive
+                                                ? 'text-slate-600 dark:text-indigo-200'
+                                                : 'text-slate-500 dark:text-slate-400')
                                         }
                                     >
                                         {s.name}
@@ -509,7 +513,9 @@ function WatchlistPanel({ watchlist, selected, onSelect, onRemove }) {
                                 <span
                                     className={
                                         'text-xs font-medium ' +
-                                        (isActive ? 'text-indigo-200' : 'text-slate-500 dark:text-slate-400')
+                                        (isActive
+                                            ? 'text-indigo-700 dark:text-indigo-200'
+                                            : 'text-slate-500 dark:text-slate-400')
                                     }
                                 >
                                     {freqLabel[s.frequency]}
@@ -517,10 +523,12 @@ function WatchlistPanel({ watchlist, selected, onSelect, onRemove }) {
                                 <span
                                     className={
                                         'text-sm font-bold ' +
-                                        (isActive ? 'text-white' : 'text-emerald-600 dark:text-emerald-400')
+                                        (isActive
+                                            ? 'text-emerald-800 dark:text-emerald-300'
+                                            : 'text-emerald-700 dark:text-emerald-400')
                                     }
                                 >
-                                    {s.dividendYield.toFixed(2)}%
+                                    연 {s.dividendYield.toFixed(2)}%
                                 </span>
                             </div>
                             {dd !== null && (
@@ -549,8 +557,8 @@ function WatchlistPanel({ watchlist, selected, onSelect, onRemove }) {
 // ─────────────────────────────────────────────
 function StockInfoHeader({ stock }) {
     return (
-        <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/60 p-5 shadow-2xl shadow-black/10">
-            <div className="flex flex-wrap items-start gap-x-6 gap-y-3">
+        <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/60 p-4 sm:p-5 shadow-2xl shadow-black/10">
+            <div className="flex flex-wrap items-start gap-x-4 sm:gap-x-6 gap-y-2">
                 <div className="flex items-center gap-3 min-w-0">
                     <div
                         className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600
@@ -578,7 +586,7 @@ function StockInfoHeader({ stock }) {
                     </div>
                 </div>
 
-                <div className="flex flex-wrap gap-3 ml-auto">
+                <div className="flex flex-wrap gap-2 sm:gap-3 ml-auto">
                     <MetricChip
                         label="현재가"
                         value={fmtNum(stock.currentPrice, stock.currency)}
@@ -666,8 +674,8 @@ function DividendTimeline({ stock }) {
     });
 
     return (
-        <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 p-5 shadow-xl">
-            <div className="flex items-center gap-2 mb-4">
+        <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 p-4 sm:p-5 shadow-xl">
+            <div className="flex items-center gap-2 mb-2 sm:mb-3">
                 <CalendarDays className="w-4 h-4 text-indigo-500" />
                 <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
                     {Math.min(...years)}~{Math.max(...years)}년 배당 타임라인
@@ -684,7 +692,7 @@ function DividendTimeline({ stock }) {
                 </div>
             </div>
 
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-2.5 sm:gap-3">
                 {byYear.map((row) => (
                     <div key={row.year} className="overflow-x-auto pb-1">
                         <div className="flex items-center gap-2 mb-1 text-xs text-slate-500 dark:text-slate-400">
@@ -923,8 +931,8 @@ function DividendCalculator({ stock, exchangeRate = DEFAULT_EXCHANGE_RATE }) {
     const nextPayKRW = toKRW(nextPayNet, stock.currency, rate);
 
     return (
-        <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 p-5 shadow-xl">
-            <div className="flex items-center gap-2 mb-4">
+        <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 p-4 sm:p-5 shadow-xl">
+            <div className="flex items-center gap-2 mb-2 sm:mb-3">
                 <DollarSign className="w-4 h-4 text-indigo-500" />
                 <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">세후 배당금 계산기</h2>
                 {stock.currency === 'USD' && (
@@ -954,7 +962,7 @@ function DividendCalculator({ stock, exchangeRate = DEFAULT_EXCHANGE_RATE }) {
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2.5">
+            <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
                 <CalcCard
                     label="연간 세전"
                     primary={sharesNum > 0 ? fmtNum(annualGross, stock.currency) : '—'}
@@ -1040,8 +1048,11 @@ function DpsBarChart({ stock }) {
     const tooltipBg = dark ? '#0f172a' : '#ffffff';
     const tooltipBorder = dark ? '#1f2937' : '#e2e8f0';
 
-    const data = stock.events.map((ev, i) => ({
-        label: `${i + 1}회 (${fmtMD(ev.exDate)})`,
+    // 첫 배당 시점부터 최신 데이터까지 연속 시각화 (가능한 모든 이벤트 포함)
+    const historyEvents = (stock.events || []).slice().sort((a, b) => parseDate(a.exDate) - parseDate(b.exDate));
+
+    const data = historyEvents.map((ev, i) => ({
+        label: `${i + 1}회 (${parseDate(ev.exDate).getFullYear()})`,
         net: parseFloat((ev.dps * (1 - stock.taxRate)).toFixed(4)),
     }));
 
@@ -1069,16 +1080,7 @@ function DpsBarChart({ stock }) {
             <ResponsiveContainer width="100%" height={180}>
                 <LineChart data={data} margin={{ top: 6, right: 12, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
-                    <XAxis
-                        dataKey="label"
-                        tick={{ fill: axisColor, fontSize: 10 }}
-                        axisLine={false}
-                        tickLine={false}
-                        interval={0}
-                        angle={-20}
-                        textAnchor="end"
-                        height={55}
-                    />
+                    <XAxis dataKey="label" tick={false} axisLine={false} tickLine={false} height={4} />
                     <YAxis
                         tick={{ fill: axisColor, fontSize: 10 }}
                         axisLine={false}
@@ -1095,8 +1097,8 @@ function DpsBarChart({ stock }) {
                         dataKey="net"
                         stroke="#10b981"
                         strokeWidth={2.5}
-                        dot={{ r: 3, strokeWidth: 1.5, fill: '#ffffff' }}
-                        activeDot={{ r: 5 }}
+                        dot={false}
+                        activeDot={false}
                         name="세후"
                     />
                 </LineChart>
@@ -1178,15 +1180,12 @@ function EmptyState({ onPickTicker }) {
 // ─────────────────────────────────────────────
 function StockDetailView({ stock, exchangeRate = DEFAULT_EXCHANGE_RATE }) {
     return (
-        <div className="flex-1 flex flex-col gap-4 min-w-0">
+        <div className="flex-1 w-full flex flex-col gap-4 min-w-0">
             <StockInfoHeader stock={stock} />
             <DividendTimeline stock={stock} />
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                <DividendTable stock={stock} />
-                <div className="flex flex-col gap-4">
-                    <DividendCalculator stock={stock} exchangeRate={exchangeRate} />
-                    <DpsBarChart stock={stock} />
-                </div>
+            <div className="flex flex-col gap-4">
+                <DpsBarChart stock={stock} />
+                <DividendCalculator stock={stock} exchangeRate={exchangeRate} />
             </div>
         </div>
     );
@@ -1203,6 +1202,7 @@ function DashboardApp() {
             const storedV = Number(localStorage.getItem('dm-cache-v') || '0');
             if (storedV < CACHE_VERSION) {
                 localStorage.removeItem('dm-live-cache');
+                localStorage.removeItem('dm-watchlist');
                 localStorage.setItem('dm-cache-v', String(CACHE_VERSION));
                 return {};
             }
@@ -1528,9 +1528,8 @@ function DashboardApp() {
 
         if (events.length === 0) {
             try {
-                const fromYear = CURRENT_YEAR - 2;
                 const divRes = await fetch(
-                    `/api/dividends?symbol=${encodeURIComponent(resolvedSymbol)}&from=${fromYear}-01-01`,
+                    `/api/dividends?symbol=${encodeURIComponent(resolvedSymbol)}&from=1990-01-01`,
                 );
                 if (divRes.ok) {
                     const divs = await divRes.json();
@@ -1751,13 +1750,13 @@ function DashboardApp() {
                 </div>
             </header>
 
-            <main className="flex-1 max-w-screen-lg w-full mx-auto px-3 sm:px-6 py-3 sm:py-6 relative">
+            <main className="flex-1 max-w-screen-lg w-full mx-auto px-3 sm:px-6 py-3 sm:py-6 relative overflow-x-hidden">
                 <div
                     className="absolute inset-0 rounded-[24px] bg-white/18 dark:bg-slate-900/18 blur-3xl"
                     aria-hidden
                 />
-                <div className="relative rounded-[22px] border border-slate-200/80 dark:border-slate-800/60 bg-white/70 dark:bg-slate-900/55 backdrop-blur-2xl shadow-2xl shadow-black/10 p-3 sm:p-6">
-                    <div className="flex flex-col xl:flex-row gap-5 items-start">
+                <div className="relative w-full max-w-full overflow-hidden rounded-[22px] border border-slate-200/80 dark:border-slate-800/60 bg-white/70 dark:bg-slate-900/55 backdrop-blur-2xl shadow-2xl shadow-black/10 p-3 sm:p-6">
+                    <div className="flex w-full min-w-0 flex-col xl:flex-row gap-5 items-start">
                         <WatchlistPanel
                             watchlist={watchlist}
                             selected={selected}
