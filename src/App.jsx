@@ -30,8 +30,6 @@ const CACHE_VERSION = 5; // 버전 올리면 모든 stale 캐시 자동 파기
 // 3. 공용 상수
 // ─────────────────────────────────────────────
 const DEFAULT_EXCHANGE_RATE = 1350;
-const KSD_SERVICE_KEY = '243556297b1ecc0d67d59692a5d44e5ae4bba0cce32f0730e7c4e583b5f8fd07';
-const KSD_DIVINFO_URL = 'http://api.seibro.or.kr/openapi/service/CorpSvc/getDivInfo';
 const TODAY = new Date();
 const CURRENT_YEAR = TODAY.getFullYear();
 const CURRENT_MONTH = TODAY.getMonth();
@@ -491,7 +489,7 @@ function WatchlistPanel({ watchlist, selected, onSelect, onRemove }) {
                                                 : 'text-slate-500 dark:text-slate-400')
                                         }
                                     >
-                                        {s.name}
+                                        {s.displayName || s.name}
                                     </p>
                                 </div>
                                 <button
@@ -581,7 +579,9 @@ function StockInfoHeader({ stock }) {
                             </span>
                             <FreqBadge freq={stock.frequency} />
                         </div>
-                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{stock.name}</p>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                            {stock.displayName || stock.name}
+                        </p>
                         <p className="text-xs text-slate-400 dark:text-slate-500">{stock.sector}</p>
                     </div>
                 </div>
@@ -1350,16 +1350,13 @@ function DashboardApp() {
         if (candidates.length === 0) return [];
 
         for (const issucoCustno of candidates) {
-            const params = new URLSearchParams({
-                serviceKey: KSD_SERVICE_KEY,
-                pageNo: '1',
-                numOfRows: '60',
-                issucoCustno,
-                rgtStdDt: baseDate,
-            });
-
             try {
-                const res = await fetch(`${KSD_DIVINFO_URL}?${params.toString()}`);
+                const params = new URLSearchParams({
+                    issucoCustno,
+                    rgtStdDt: baseDate,
+                });
+
+                const res = await fetch(`/api/ksd-dividends?${params.toString()}`);
                 if (!res.ok) continue;
                 const xmlText = await res.text();
                 if (!xmlText) continue;
@@ -1475,9 +1472,15 @@ function DashboardApp() {
             sd.dividendYield ?? sd.yield ?? sd.trailingAnnualDividendYield ?? quote.trailingAnnualDividendYield ?? null;
         // yahoo-finance2는 소수(0.05 = 5%) 반환 → 항상 *100
         let dividendYield = rawYield != null ? rawYield * 100 : price && annualDPS ? (annualDPS / price) * 100 : 0;
-        const name = quote.longName || quote.shortName || quote.symbol || resolvedSymbol.toUpperCase();
-        const baseSymbol = normalized;
+        const baseName = quote.longName || quote.shortName || quote.symbol || resolvedSymbol.toUpperCase();
         const country = currency === 'KRW' ? 'KR' : 'US';
+        const displayName =
+            country === 'KR'
+                ? krShortName || quote.shortName || krLongName || baseName || resolvedSymbol.toUpperCase()
+                : baseName;
+        const fullName = krLongName || baseName || displayName;
+        const name = displayName;
+        const baseSymbol = normalized;
         const taxRate = country === 'KR' ? 0.154 : 0.15;
 
         // KR 종목인데 한글명이 아직 없으면 6자리 코드로 검색해서 한글명 취득
@@ -1501,6 +1504,8 @@ function DashboardApp() {
         }
 
         const aliases = [
+            displayName,
+            fullName,
             quote.shortName,
             quote.longName,
             quote.symbol,
@@ -1592,12 +1597,14 @@ function DashboardApp() {
 
         const description =
             country === 'KR'
-                ? `${name} · 한국예탁결제원 배당정보 + Yahoo Finance`
+                ? `${fullName || name} · 한국예탁결제원 배당정보 + Yahoo Finance`
                 : `${name} · Yahoo Finance 실시간 데이터`;
 
         return {
             ticker: (quote.symbol || resolvedSymbol).toUpperCase(),
             name,
+            displayName: name,
+            fullName,
             aliases,
             country,
             currency,
@@ -1617,11 +1624,16 @@ function DashboardApp() {
         const tryFetch = async (url, extract) => {
             const res = await fetch(url);
             if (!res.ok) throw new Error('fx fetch failed');
-            const data = await res.json();
+            let data = null;
+            try {
+                data = await res.json();
+            } catch (_) {
+                return null;
+            }
             const val = extract(data);
             const next = Number(val);
             if (Number.isFinite(next) && next > 0) return next;
-            throw new Error('invalid fx data');
+            return null;
         };
 
         const pipelines = [
@@ -1632,9 +1644,11 @@ function DashboardApp() {
         for (const fn of pipelines) {
             try {
                 const rate = await fn();
-                setExchangeRate(rate);
-                setExchangeRateUpdatedAt(new Date().toISOString());
-                return rate;
+                if (Number.isFinite(rate) && rate > 0) {
+                    setExchangeRate(rate);
+                    setExchangeRateUpdatedAt(new Date().toISOString());
+                    return rate;
+                }
             } catch (err) {
                 console.warn('exchange rate fetch failed', err);
             }
