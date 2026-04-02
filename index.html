@@ -3,7 +3,79 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Dividend Master – 배당 투자 관리 대시보드</title>
+
+        <!-- ── Primary SEO ── -->
+        <title>배당의 민족 – Dividend Master | 배당락일·배당금·수익률 실시간 조회</title>
+        <meta
+            name="description"
+            content="미국·한국 주식·ETF의 배당락일, 지급일, 주당배당금(DPS), 배당수익률을 실시간으로 조회하고 세후 배당금을 자동 계산하세요. SCHD·JEPI·삼성전자 등 국내외 배당주 정보를 한 곳에서 확인할 수 있습니다."
+        />
+        <meta
+            name="keywords"
+            content="배당락일,배당금,배당수익률,DPS,SCHD,JEPI,배당주,월배당,분기배당,삼성전자배당,ETF배당,dividend,ex-dividend date,배당투자,배당일정,배당계산기"
+        />
+        <meta name="author" content="배당의 민족" />
+        <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+        <link rel="canonical" href="https://divi-tracker.netlify.app/" />
+
+        <!-- ── Open Graph (Facebook / KakaoTalk 등) ── -->
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://divi-tracker.netlify.app/" />
+        <meta property="og:site_name" content="배당의 민족 – Dividend Master" />
+        <meta property="og:title" content="배당의 민족 – 배당락일·배당금·수익률 실시간 조회" />
+        <meta
+            property="og:description"
+            content="미국·한국 배당주 배당락일, 지급일, 세후 배당금을 실시간으로 확인하고 계산하세요. SCHD, JEPI, JEPQ, 삼성전자 등 지원."
+        />
+        <meta property="og:image" content="https://divi-tracker.netlify.app/og-image.svg" />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta property="og:image:alt" content="배당의 민족 – 배당 투자 대시보드" />
+        <meta property="og:locale" content="ko_KR" />
+
+        <!-- ── Twitter Card ── -->
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="배당의 민족 – 배당락일·배당금·수익률 실시간 조회" />
+        <meta
+            name="twitter:description"
+            content="미국·한국 배당주 배당락일, 지급일, 세후 배당금을 실시간으로 확인하고 계산하세요."
+        />
+        <meta name="twitter:image" content="https://divi-tracker.netlify.app/og-image.svg" />
+
+        <!-- ── 색상 테마 (모바일 브라우저 주소창) ── -->
+        <meta name="theme-color" content="#0f172a" />
+
+        <!-- ── JSON-LD 구조화 데이터 ── -->
+        <script type="application/ld+json">
+            {
+                "@context": "https://schema.org",
+                "@type": "WebApplication",
+                "name": "배당의 민족 – Dividend Master",
+                "url": "https://divi-tracker.netlify.app/",
+                "description": "미국·한국 주식·ETF의 배당락일, 지급일, 주당배당금(DPS), 배당수익률을 실시간으로 조회하고 세후 배당금을 자동 계산하는 배당 투자 대시보드",
+                "applicationCategory": "FinanceApplication",
+                "operatingSystem": "Web",
+                "inLanguage": "ko",
+                "offers": {
+                    "@type": "Offer",
+                    "price": "0",
+                    "priceCurrency": "KRW"
+                },
+                "featureList": [
+                    "배당락일 실시간 조회",
+                    "지급일 실시간 조회",
+                    "주당배당금(DPS) 조회",
+                    "배당수익률 조회",
+                    "세후 배당금 자동 계산",
+                    "원/달러 환율 자동 반영",
+                    "미국·한국 주식·ETF 지원"
+                ]
+            }
+        </script>
+
+        <!-- ── Preconnect (외부 API 레이턴시 단축) ── -->
+        <link rel="preconnect" href="https://query1.finance.yahoo.com" crossorigin />
+        <link rel="preconnect" href="https://open.er-api.com" crossorigin />
     </head>
     <body>
         <div id="root"></div>

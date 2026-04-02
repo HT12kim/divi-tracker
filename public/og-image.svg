@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e1b4b"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#8b5cf6"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <!-- 아이콘 배경 -->
+  <rect x="80" y="220" width="88" height="88" rx="22" fill="url(#accent)"/>
+  <!-- 트렌드 아이콘 (단순화) -->
+  <polyline points="100,285 120,265 140,275 168,248" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- 타이틀 -->
+  <text x="196" y="270" font-family="'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif" font-size="56" font-weight="800" fill="#ffffff">배당의 민족</text>
+  <text x="196" y="326" font-family="'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif" font-size="34" font-weight="400" fill="#94a3b8">Dividend Master</text>
+  <!-- 설명 -->
+  <text x="80" y="400" font-family="'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif" font-size="26" fill="#cbd5e1">미국·한국 배당락일 · 배당금 · 수익률 실시간 조회</text>
+  <text x="80" y="440" font-family="'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif" font-size="26" fill="#cbd5e1">세후 배당금 자동 계산 · SCHD · JEPI · 삼성전자 지원</text>
+  <!-- URL -->
+  <text x="80" y="570" font-family="monospace" font-size="22" fill="#475569">divi-tracker.netlify.app</text>
+</svg>
