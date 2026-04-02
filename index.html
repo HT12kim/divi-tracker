@@ -76,6 +76,18 @@
         <!-- ── Preconnect (외부 API 레이턴시 단축) ── -->
         <link rel="preconnect" href="https://query1.finance.yahoo.com" crossorigin />
         <link rel="preconnect" href="https://open.er-api.com" crossorigin />
+        <link rel="preconnect" href="https://www.googletagmanager.com" crossorigin />
+
+        <!-- Google tag (gtag.js) -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-SXWBZHPB89"></script>
+        <script>
+            window.dataLayer = window.dataLayer || [];
+            function gtag() {
+                dataLayer.push(arguments);
+            }
+            gtag('js', new Date());
+            gtag('config', 'G-SXWBZHPB89');
+        </script>
     </head>
     <body>
         <div id="root"></div>
