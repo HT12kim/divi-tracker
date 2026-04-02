@@ -526,7 +526,7 @@ function WatchlistPanel({ watchlist, selected, onSelect, onRemove }) {
                                             : 'text-emerald-700 dark:text-emerald-400')
                                     }
                                 >
-                                    연 {s.dividendYield.toFixed(2)}%
+                                    연 배당수익률 {s.dividendYield.toFixed(2)}%
                                 </span>
                             </div>
                             {dd !== null && (
