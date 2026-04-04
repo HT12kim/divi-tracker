@@ -1108,7 +1108,86 @@ function DpsBarChart({ stock }) {
 }
 
 // ─────────────────────────────────────────────
-// 12. EmptyState
+// 12. FaqSection
+// ─────────────────────────────────────────────
+const FAQ_ITEMS = [
+    {
+        q: '배당락일이란 무엇인가요?',
+        a: '배당락일(Ex-Dividend Date)은 해당 날짜부터 주식을 매수해도 해당 배당금을 받을 수 없는 날입니다. 배당금을 받으려면 배당락일 하루 전까지 주식을 보유해야 합니다.',
+    },
+    {
+        q: '배당수익률은 어떻게 계산하나요?',
+        a: '배당수익률(%) = (연간 주당배당금 ÷ 현재 주가) × 100 으로 계산합니다. 예를 들어 주가가 10만 원이고 연간 배당금이 3,000원이면 배당수익률은 3%입니다.',
+    },
+    {
+        q: '미국 배당주 세금은 얼마인가요?',
+        a: '미국 주식 배당금에는 미국 원천징수세 15%가 부과됩니다. 한국 거주자는 미·한 조세협약에 따라 15% 세율이 적용되며, 미국 세금과 한국 배당소득세가 중복 과세되지 않습니다.',
+    },
+    {
+        q: '한국 주식 배당소득세는 얼마인가요?',
+        a: '국내 주식 배당소득에는 배당소득세 14%와 지방소득세 1.4%, 합계 15.4%가 원천징수됩니다.',
+    },
+    {
+        q: 'SCHD는 얼마나 자주 배당금을 지급하나요?',
+        a: 'SCHD(Schwab U.S. Dividend Equity ETF)는 분기마다 배당금을 지급합니다. 매년 3월·6월·9월·12월에 배당락일과 지급일이 돌아옵니다.',
+    },
+    {
+        q: 'JEPI와 JEPQ는 월배당인가요?',
+        a: '네, JEPI(JPMorgan Equity Premium Income ETF)와 JEPQ(JPMorgan Nasdaq Equity Premium Income ETF)는 매월 배당금을 지급하는 월배당 ETF입니다.',
+    },
+    {
+        q: '배당락일과 배당기준일의 차이는 무엇인가요?',
+        a: '배당기준일(Record Date)은 배당금을 받을 주주를 확정하는 날이고, 배당락일(Ex-Dividend Date)은 그 하루 전 영업일입니다. 배당락일 이전에 매수해야 배당기준일에 주주로 등록됩니다.',
+    },
+    {
+        q: '배당금 지급일은 배당락일로부터 얼마나 걸리나요?',
+        a: '미국 주식은 보통 배당락일로부터 2~4주 후에 배당금이 지급됩니다. 한국 주식은 배당기준일 후 약 60~90일 이내에 지급되는 경우가 많습니다.',
+    },
+];
+
+function FaqSection() {
+    const [openIdx, setOpenIdx] = React.useState(null);
+    return (
+        <section
+            aria-label="자주 묻는 질문"
+            className="max-w-screen-lg w-full mx-auto px-3 sm:px-6 pb-6"
+        >
+            <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3 px-1">
+                자주 묻는 질문 (FAQ)
+            </h2>
+            <div className="flex flex-col gap-2">
+                {FAQ_ITEMS.map((item, idx) => {
+                    const isOpen = openIdx === idx;
+                    return (
+                        <div
+                            key={idx}
+                            className="rounded-xl border border-slate-200/80 dark:border-slate-800/60 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl shadow-sm overflow-hidden"
+                        >
+                            <button
+                                onClick={() => setOpenIdx(isOpen ? null : idx)}
+                                aria-expanded={isOpen}
+                                className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left text-sm font-medium text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                            >
+                                <span>{item.q}</span>
+                                <span className={`flex-shrink-0 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}>
+                                    ▾
+                                </span>
+                            </button>
+                            {isOpen && (
+                                <div className="px-4 pb-4 pt-1 text-sm text-slate-600 dark:text-slate-400 leading-relaxed border-t border-slate-100 dark:border-slate-800">
+                                    {item.a}
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+        </section>
+    );
+}
+
+// ─────────────────────────────────────────────
+// 13. EmptyState
 // ─────────────────────────────────────────────
 function EmptyState({ onPickTicker }) {
     return (
@@ -1788,6 +1867,8 @@ function DashboardApp() {
                 </div>
             </main>
 
+            <FaqSection />
+
             <footer className="border-t border-slate-200 dark:border-slate-800 py-3 px-6">
                 <p className="text-center text-xs text-slate-400 dark:text-slate-600">
                     Dividend Master · 환율 ₩{rateDisplay}/USD{rateSuffix} · 기준일 {TODAY.toISOString().slice(0, 10)}
@@ -1796,8 +1877,6 @@ function DashboardApp() {
         </div>
     );
 }
-
-export default function App() {
     return (
         <ThemeProvider>
             <DashboardApp />
