@@ -1148,10 +1148,7 @@ const FAQ_ITEMS = [
 function FaqSection() {
     const [openIdx, setOpenIdx] = React.useState(null);
     return (
-        <section
-            aria-label="자주 묻는 질문"
-            className="max-w-screen-lg w-full mx-auto px-3 sm:px-6 pb-6"
-        >
+        <section aria-label="자주 묻는 질문" className="max-w-screen-lg w-full mx-auto px-3 sm:px-6 pb-6">
             <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3 px-1">
                 자주 묻는 질문 (FAQ)
             </h2>
@@ -1169,7 +1166,9 @@ function FaqSection() {
                                 className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left text-sm font-medium text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
                             >
                                 <span>{item.q}</span>
-                                <span className={`flex-shrink-0 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}>
+                                <span
+                                    className={`flex-shrink-0 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+                                >
                                     ▾
                                 </span>
                             </button>
@@ -1877,6 +1876,8 @@ function DashboardApp() {
         </div>
     );
 }
+
+export default function App() {
     return (
         <ThemeProvider>
             <DashboardApp />
