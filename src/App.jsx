@@ -88,7 +88,7 @@ function useTheme() {
     return ctx;
 }
 
-function SearchBar({ onSelect, onFetch, liveCache, krStocks, krEtfs }) {
+function SearchBar({ onSelect, onFetch, liveCache, krStocks, krEtfs, krDataReady }) {
     const [query, setQuery] = useState('');
     const [open, setOpen] = useState(false);
     const [debounced, setDebounced] = useState('');
@@ -176,7 +176,8 @@ function SearchBar({ onSelect, onFetch, liveCache, krStocks, krEtfs }) {
 
     // 로컬 CSV 검색 — 한글(종목명·단축명) / 영문(단축명·영문명) / 숫자(코드) 모두 지원
     const isKoreanQuery = q.length > 0 && /[가-힣]/.test(q);
-    const isLocalSearch = q.length >= 2;
+    // 한글은 1자부터, 영문/숫자는 2자부터 로컬 CSV 검색 실행
+    const isLocalSearch = isKoreanQuery ? q.length >= 1 : q.length >= 2;
     const qUp = q.toUpperCase();
     const isCodeQuery = /^\d{1,6}$/.test(q);
 
@@ -281,8 +282,8 @@ function SearchBar({ onSelect, onFetch, liveCache, krStocks, krEtfs }) {
         none: '비배당주',
     };
 
-    // 한글 2자 이상이면 데이터 로딩 중이거나 결과 없음 메시지를 위해 드롭다운 강제 오픈
-    const isKrDataLoading = isKoreanQuery && isLocalSearch && krStocks.length === 0 && krEtfs.length === 0;
+    // 한글 입력 시: krDataReady가 false면 아직 CSV 로딩 중
+    const isKrDataLoading = isKoreanQuery && isLocalSearch && !krDataReady;
     const hasDropdown =
         open && (mergedResults.length > 0 || loadingSuggest || errorSuggest || (isKoreanQuery && isLocalSearch));
 
@@ -335,15 +336,20 @@ function SearchBar({ onSelect, onFetch, liveCache, krStocks, krEtfs }) {
                     className="absolute top-full mt-2 left-0 right-0 z-50 rounded-2xl shadow-2xl shadow-black/10 overflow-hidden
           bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70"
                 >
+                    {isKrDataLoading && (
+                        <div className="px-4 py-3 text-sm text-slate-400 dark:text-slate-500">
+                            종목 목록 불러오는 중...
+                        </div>
+                    )}
                     {loadingSuggest && (
                         <div className="px-4 py-3 text-sm text-slate-400 dark:text-slate-500">검색 중...</div>
                     )}
                     {errorSuggest && (
                         <div className="px-4 py-3 text-sm text-red-500 dark:text-red-400">{errorSuggest}</div>
                     )}
-                    {!loadingSuggest &&
+                    {!isKrDataLoading &&
+                        !loadingSuggest &&
                         !errorSuggest &&
-                        !isKrDataLoading &&
                         mergedResults.length === 0 &&
                         q.length > 0 && (
                             <div className="px-4 py-3 text-sm text-slate-400 dark:text-slate-500">검색 결과 없음</div>
@@ -1533,17 +1539,22 @@ function DashboardApp() {
     // 한국 종목·ETF 목록 (fetchLiveStock + SearchBar 공유)
     const [krStocks, setKrStocks] = useState([]);
     const [krEtfs, setKrEtfs] = useState([]);
+    const [krDataReady, setKrDataReady] = useState(false);
     useEffect(() => {
-        fetch('/api/kr-stocks')
-            .then((r) => (r.ok ? r.json() : []))
-            .then((data) => setKrStocks(Array.isArray(data) ? data : []))
-            .catch(() => {});
-    }, []);
-    useEffect(() => {
-        fetch('/api/kr-etfs')
-            .then((r) => (r.ok ? r.json() : []))
-            .then((data) => setKrEtfs(Array.isArray(data) ? data : []))
-            .catch(() => {});
+        Promise.all([
+            fetch('/api/kr-stocks')
+                .then((r) => (r.ok ? r.json() : []))
+                .then((data) => (Array.isArray(data) ? data : []))
+                .catch(() => []),
+            fetch('/api/kr-etfs')
+                .then((r) => (r.ok ? r.json() : []))
+                .then((data) => (Array.isArray(data) ? data : []))
+                .catch(() => []),
+        ]).then(([stocks, etfs]) => {
+            setKrStocks(stocks);
+            setKrEtfs(etfs);
+            setKrDataReady(true);
+        });
     }, []);
 
     const inferFrequency = (events, fallbackYield, country, ticker, quoteType) => {
@@ -2073,6 +2084,7 @@ function DashboardApp() {
                             liveCache={liveCache}
                             krStocks={krStocks}
                             krEtfs={krEtfs}
+                            krDataReady={krDataReady}
                         />
                     </div>
 
