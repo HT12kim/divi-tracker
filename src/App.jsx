@@ -281,7 +281,10 @@ function SearchBar({ onSelect, onFetch, liveCache, krStocks, krEtfs }) {
         none: '비배당주',
     };
 
-    const hasDropdown = open && (mergedResults.length > 0 || loadingSuggest || errorSuggest);
+    // 한글 2자 이상이면 데이터 로딩 중이거나 결과 없음 메시지를 위해 드롭다운 강제 오픈
+    const isKrDataLoading = isKoreanQuery && isLocalSearch && krStocks.length === 0 && krEtfs.length === 0;
+    const hasDropdown =
+        open && (mergedResults.length > 0 || loadingSuggest || errorSuggest || (isKoreanQuery && isLocalSearch));
 
     return (
         <div ref={wrapRef} className="relative w-full max-w-xl">
@@ -339,7 +342,9 @@ function SearchBar({ onSelect, onFetch, liveCache, krStocks, krEtfs }) {
                         <div className="px-4 py-3 text-sm text-red-500 dark:text-red-400">{errorSuggest}</div>
                     )}
                     {!loadingSuggest && !errorSuggest && mergedResults.length === 0 && q.length > 0 && (
-                        <div className="px-4 py-3 text-sm text-slate-400 dark:text-slate-500">검색 결과 없음</div>
+                        <div className="px-4 py-3 text-sm text-slate-400 dark:text-slate-500">
+                            {isKrDataLoading ? '종목 목록 로딩 중...' : '검색 결과 없음'}
+                        </div>
                     )}
                     {mergedResults.map((s) => {
                         const isSuggestion = s._source === 'suggestion' || s._source === 'krLocal';
