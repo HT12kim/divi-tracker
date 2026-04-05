@@ -3,8 +3,12 @@ import path from 'path';
 
 // data_1131_*.csv 중 최신 파일 탐색
 const findCsv = () => {
-    const candidates = [process.cwd(), path.join(new URL(import.meta.url).pathname, '../../..')];
-    for (const dir of candidates) {
+    const searchDirs = [
+        process.cwd(),
+        path.join(process.cwd(), 'netlify/functions'),
+        path.join(process.cwd(), '.netlify/functions'),
+    ];
+    for (const dir of searchDirs) {
         try {
             const files = fs
                 .readdirSync(dir)

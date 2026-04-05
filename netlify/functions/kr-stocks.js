@@ -4,7 +4,8 @@ import path from 'path';
 const findCsv = () => {
     const candidates = [
         path.join(process.cwd(), 'vite.config.csv'),
-        path.join(new URL(import.meta.url).pathname, '../../../vite.config.csv'),
+        path.join(process.cwd(), 'netlify/functions/vite.config.csv'),
+        path.join(process.cwd(), '.netlify/functions/vite.config.csv'),
     ];
     for (const p of candidates) {
         try {
