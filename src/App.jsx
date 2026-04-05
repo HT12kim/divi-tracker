@@ -341,11 +341,13 @@ function SearchBar({ onSelect, onFetch, liveCache, krStocks, krEtfs }) {
                     {errorSuggest && (
                         <div className="px-4 py-3 text-sm text-red-500 dark:text-red-400">{errorSuggest}</div>
                     )}
-                    {!loadingSuggest && !errorSuggest && mergedResults.length === 0 && q.length > 0 && (
-                        <div className="px-4 py-3 text-sm text-slate-400 dark:text-slate-500">
-                            {isKrDataLoading ? '종목 목록 로딩 중...' : '검색 결과 없음'}
-                        </div>
-                    )}
+                    {!loadingSuggest &&
+                        !errorSuggest &&
+                        !isKrDataLoading &&
+                        mergedResults.length === 0 &&
+                        q.length > 0 && (
+                            <div className="px-4 py-3 text-sm text-slate-400 dark:text-slate-500">검색 결과 없음</div>
+                        )}
                     {mergedResults.map((s) => {
                         const isSuggestion = s._source === 'suggestion' || s._source === 'krLocal';
                         const next = !isSuggestion ? nextExDate(s) : null;
