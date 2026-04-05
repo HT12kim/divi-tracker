@@ -299,7 +299,7 @@ function SearchBar({ onSelect, onFetch, liveCache, krStocks, krEtfs, krDataReady
                     type="text"
                     value={query}
                     placeholder="티커 또는 종목명 검색  (예: SCHD, 삼성전자)"
-                    className="flex-1 bg-transparent text-sm text-slate-800 dark:text-slate-200
+                    className="flex-1 bg-transparent text-base sm:text-sm text-slate-800 dark:text-slate-200
                     placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none"
                     onChange={(e) => {
                         setQuery(e.target.value);
