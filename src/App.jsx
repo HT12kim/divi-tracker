@@ -220,6 +220,14 @@ function SearchBar({ onSelect, onFetch, liveCache, krStocks, krEtfs }) {
           })()
         : [];
 
+    // CSV 한글명 조회 헬퍼 — 6자리 코드로 krStocks·krEtfs 검색
+    const lookupKrName = (ticker) => {
+        const sixDigit = (ticker || '').replace(/\.(KS|KQ)$/i, '').replace(/^KRX:/i, '');
+        if (!/^\d{6}$/.test(sixDigit)) return null;
+        const match = [...krStocks, ...krEtfs].find((s) => s.code === sixDigit);
+        return match ? match.shortName || match.name || null : null;
+    };
+
     const mergedResults = [];
     const seen = new Set();
 
@@ -235,16 +243,22 @@ function SearchBar({ onSelect, onFetch, liveCache, krStocks, krEtfs }) {
         const t = s.ticker.toUpperCase();
         if (seen.has(t)) return;
         seen.add(t);
-        mergedResults.push({ ...s, _source: 'cache' });
+        const krName = lookupKrName(s.ticker);
+        mergedResults.push({
+            ...s,
+            name: krName || s.displayName || s.name,
+            _source: 'cache',
+        });
     });
 
     suggestions.forEach((s) => {
         const t = s.symbol.toUpperCase();
         if (seen.has(t)) return;
         seen.add(t);
+        const krName = lookupKrName(s.symbol);
         mergedResults.push({
             ticker: t,
-            name: s.shortname || s.longname || t,
+            name: krName || s.shortname || s.longname || t,
             shortName: s.shortname,
             longName: s.longname,
             quoteType: s.quoteType,
@@ -360,10 +374,10 @@ function SearchBar({ onSelect, onFetch, liveCache, krStocks, krEtfs }) {
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
-                                        {s._source === 'krLocal' ? s.name : s.ticker}
+                                        {/[가-힣]/.test(s.name) ? s.name : s.ticker}
                                     </p>
                                     <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                                        {s._source === 'krLocal'
+                                        {/[가-힣]/.test(s.name)
                                             ? s.ticker
                                             : s.name || s.longName || s.shortName || s.exchange || ''}
                                     </p>
@@ -373,7 +387,7 @@ function SearchBar({ onSelect, onFetch, liveCache, krStocks, krEtfs }) {
                                         {yieldText}
                                     </p>
                                     <p className="text-xs text-slate-400 dark:text-slate-500">
-                                        {s._source === 'krLocal' ? (
+                                        {/[가-힣]/.test(s.name) ? (
                                             <span
                                                 className={
                                                     'px-1.5 py-0.5 rounded text-[10px] font-semibold ' +
@@ -382,7 +396,7 @@ function SearchBar({ onSelect, onFetch, liveCache, krStocks, krEtfs }) {
                                                         : 'bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300')
                                                 }
                                             >
-                                                {s.quoteType}
+                                                {s.quoteType || '주식'}
                                             </span>
                                         ) : (
                                             <>
