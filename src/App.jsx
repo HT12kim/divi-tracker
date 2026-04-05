@@ -88,6 +88,48 @@ function useTheme() {
     return ctx;
 }
 
+function KakaoShareButton() {
+    const handleShare = () => {
+        if (!window.Kakao?.Share) return;
+        window.Kakao.Share.sendDefault({
+            objectType: 'feed',
+            content: {
+                title: '배당의 민족 – Dividend Master',
+                description: 'SCHD·JEPI·JEPQ·삼성전자 배당락일·배당금·수익률 실시간 조회',
+                imageUrl: 'https://divi-tracker.netlify.app/divi-tracker.png',
+                link: {
+                    mobileWebUrl: 'https://divi-tracker.netlify.app',
+                    webUrl: 'https://divi-tracker.netlify.app',
+                },
+            },
+            buttons: [
+                {
+                    title: '배당 조회하기',
+                    link: {
+                        mobileWebUrl: 'https://divi-tracker.netlify.app',
+                        webUrl: 'https://divi-tracker.netlify.app',
+                    },
+                },
+            ],
+        });
+    };
+    return (
+        <button
+            onClick={handleShare}
+            aria-label="카카오톡으로 공유하기"
+            className="fixed bottom-6 left-4 z-50 flex items-center gap-2 px-4 py-3 rounded-2xl
+                bg-[#FEE500] hover:bg-[#F0D800] active:bg-[#E6CD00]
+                text-[#3A1D1D] font-semibold text-sm
+                shadow-lg shadow-black/20 transition-all hover:scale-105 active:scale-95"
+        >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M12 3C6.477 3 2 6.925 2 11.5c0 2.91 1.747 5.467 4.375 6.993L5.25 21.5l4.688-2.45A11.3 11.3 0 0 0 12 19.25c5.523 0 10-3.925 10-8.75C22 5.925 17.523 2 12 2z" />
+            </svg>
+            카카오톡 공유
+        </button>
+    );
+}
+
 function SearchBar({ onSelect, onFetch, liveCache, krStocks, krEtfs, krDataReady }) {
     const [query, setQuery] = useState('');
     const [open, setOpen] = useState(false);
@@ -2055,6 +2097,7 @@ function DashboardApp() {
 
     return (
         <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 via-white to-slate-200 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 relative overflow-hidden">
+            <KakaoShareButton />
             <div className="pointer-events-none absolute inset-0">
                 <div className="absolute -top-16 -left-16 w-60 h-60 bg-white/30 dark:bg-indigo-500/10 rounded-full blur-3xl" />
                 <div className="absolute -bottom-14 -right-14 w-64 h-64 bg-orange-200/30 dark:bg-amber-500/10 rounded-full blur-3xl" />

@@ -38,7 +38,7 @@
             property="og:description"
             content="미국·한국 배당주 배당락일, 지급일, 세후 배당금을 실시간으로 확인하고 계산하세요. SCHD, JEPI, JEPQ, 삼성전자 등 지원."
         />
-        <meta property="og:image" content="https://divi-tracker.netlify.app/og-image.svg" />
+        <meta property="og:image" content="https://divi-tracker.netlify.app/divi-tracker.png" />
         <meta property="og:image:width" content="1200" />
         <meta property="og:image:height" content="630" />
         <meta property="og:image:alt" content="배당의 민족 – 배당 투자 대시보드" />
@@ -51,7 +51,7 @@
             name="twitter:description"
             content="미국·한국 배당주 배당락일, 지급일, 세후 배당금을 실시간으로 확인하고 계산하세요."
         />
-        <meta name="twitter:image" content="https://divi-tracker.netlify.app/og-image.svg" />
+        <meta name="twitter:image" content="https://divi-tracker.netlify.app/divi-tracker.png" />
 
         <!-- ── 색상 테마 (모바일 브라우저 주소창) ── -->
         <meta name="theme-color" content="#0f172a" />
@@ -301,6 +301,19 @@
 
         <!-- ── Kakao AdFit ── -->
         <script type="text/javascript" src="//t1.daumcdn.net/kas/static/ba.min.js" async></script>
+        <!-- ── Kakao 공유 SDK ── -->
+        <script
+            src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js"
+            integrity="sha384-TiCUE00h649CAMonG018J2ujOgDKW/kVWlChEuu4jK2vxfAAD0eZxzCKakxg55G4"
+            crossorigin="anonymous"
+        ></script>
+        <script>
+            window.addEventListener('load', function () {
+                if (window.Kakao && !window.Kakao.isInitialized()) {
+                    window.Kakao.init('b9432e00b417447e37e7ba1dbaa3a033');
+                }
+            });
+        </script>
     </head>
     <body>
         <div id="root"></div>
