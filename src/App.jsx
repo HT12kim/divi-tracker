@@ -1111,6 +1111,7 @@ function DpsBarChart({ stock }) {
 // 12. FaqSection
 // ─────────────────────────────────────────────
 const FAQ_ITEMS = [
+    // ── 기본 개념 ──────────────────────────────
     {
         q: '배당락일이란 무엇인가요?',
         a: '배당락일(Ex-Dividend Date)은 해당 날짜부터 주식을 매수해도 해당 배당금을 받을 수 없는 날입니다. 배당금을 받으려면 배당락일 하루 전까지 주식을 보유해야 합니다.',
@@ -1120,20 +1121,8 @@ const FAQ_ITEMS = [
         a: '배당수익률(%) = (연간 주당배당금 ÷ 현재 주가) × 100 으로 계산합니다. 예를 들어 주가가 10만 원이고 연간 배당금이 3,000원이면 배당수익률은 3%입니다.',
     },
     {
-        q: '미국 배당주 세금은 얼마인가요?',
-        a: '미국 주식 배당금에는 미국 원천징수세 15%가 부과됩니다. 한국 거주자는 미·한 조세협약에 따라 15% 세율이 적용되며, 미국 세금과 한국 배당소득세가 중복 과세되지 않습니다.',
-    },
-    {
-        q: '한국 주식 배당소득세는 얼마인가요?',
-        a: '국내 주식 배당소득에는 배당소득세 14%와 지방소득세 1.4%, 합계 15.4%가 원천징수됩니다.',
-    },
-    {
-        q: 'SCHD는 얼마나 자주 배당금을 지급하나요?',
-        a: 'SCHD(Schwab U.S. Dividend Equity ETF)는 분기마다 배당금을 지급합니다. 매년 3월·6월·9월·12월에 배당락일과 지급일이 돌아옵니다.',
-    },
-    {
-        q: 'JEPI와 JEPQ는 월배당인가요?',
-        a: '네, JEPI(JPMorgan Equity Premium Income ETF)와 JEPQ(JPMorgan Nasdaq Equity Premium Income ETF)는 매월 배당금을 지급하는 월배당 ETF입니다.',
+        q: '배당주란 무엇인가요?',
+        a: '배당주는 보유 주주에게 정기적으로 배당금을 지급하는 주식입니다. 수익의 일부를 배당으로 환원하는 기업의 주식으로, 안정적인 현금 흐름을 원하는 투자자에게 적합합니다. 대표적인 배당주로는 삼성전자, SCHD, JEPI, 코카콜라(KO), AT&T(T) 등이 있습니다.',
     },
     {
         q: '배당락일과 배당기준일의 차이는 무엇인가요?',
@@ -1143,7 +1132,226 @@ const FAQ_ITEMS = [
         q: '배당금 지급일은 배당락일로부터 얼마나 걸리나요?',
         a: '미국 주식은 보통 배당락일로부터 2~4주 후에 배당금이 지급됩니다. 한국 주식은 배당기준일 후 약 60~90일 이내에 지급되는 경우가 많습니다.',
     },
+    // ── 세금 ──────────────────────────────
+    {
+        q: '미국 배당주 세금은 얼마인가요?',
+        a: '미국 주식 배당금에는 미국 원천징수세 15%가 부과됩니다. 한국 거주자는 미·한 조세협약에 따라 15% 세율이 적용되며, 미국 세금과 한국 배당소득세가 중복 과세되지 않습니다.',
+    },
+    {
+        q: '한국 주식 배당소득세는 얼마인가요?',
+        a: '국내 주식 배당소득에는 배당소득세 14%와 지방소득세 1.4%, 합계 15.4%가 원천징수됩니다.',
+    },
+    {
+        q: '배당금에 이중과세가 발생하지 않나요?',
+        a: '한국 투자자가 미국 주식 배당금을 받을 때, 미국에서 15% 원천징수 후 국내에 송금됩니다. 한·미 조세협약에 의해 미국에서 낸 세금은 국내 세금에서 외국납부세액공제로 처리되므로 이중과세가 발생하지 않습니다.',
+    },
+    {
+        q: '배당소득이 2,000만 원을 초과하면 어떻게 되나요?',
+        a: '국내 거주자의 금융소득(이자+배당)이 연 2,000만 원을 초과하면 종합소득세 신고 대상이 됩니다. 초과분에 대해 다른 소득과 합산하여 6~45%의 누진세율로 과세되므로 고액 배당 투자자는 사전에 세금 계획이 필요합니다.',
+    },
+    // ── ETF 상품 ──────────────────────────────
+    {
+        q: 'SCHD는 얼마나 자주 배당금을 지급하나요?',
+        a: 'SCHD(Schwab U.S. Dividend Equity ETF)는 분기마다 배당금을 지급합니다. 매년 3월·6월·9월·12월에 배당락일과 지급일이 돌아옵니다.',
+    },
+    {
+        q: 'SCHD란 어떤 ETF인가요?',
+        a: 'SCHD(Schwab U.S. Dividend Equity ETF)는 슈왑(Schwab)이 운용하는 미국 고배당 ETF로, 10년 이상 꾸준히 배당을 지급·성장시킨 미국 우량 기업 약 100개에 투자합니다. 분기배당이며 배당 성장성이 높아 장기 투자자에게 인기 있는 배당 ETF입니다.',
+    },
+    {
+        q: 'JEPI와 JEPQ는 월배당인가요?',
+        a: '네, JEPI(JPMorgan Equity Premium Income ETF)와 JEPQ(JPMorgan Nasdaq Equity Premium Income ETF)는 매월 배당금을 지급하는 월배당 ETF입니다.',
+    },
+    {
+        q: 'JEPQ란 어떤 ETF인가요?',
+        a: 'JEPQ(JPMorgan Nasdaq Equity Premium Income ETF)는 나스닥100 기업에 투자하면서 ELN(Equity-Linked Note) 기반 커버드콜 전략으로 매월 높은 배당금을 지급하는 ETF입니다. JEPI보다 기술주 비중이 높아 성장 잠재력과 높은 월배당을 동시에 추구합니다.',
+    },
+    {
+        q: '커버드콜 ETF란 무엇인가요?',
+        a: '커버드콜(Covered Call) ETF는 보유 주식에 대해 콜옵션을 매도하여 프리미엄 수익을 얻고 이를 배당으로 지급하는 ETF입니다. JEPI, JEPQ, QYLD, RYLD 등이 대표적입니다. 일반 ETF보다 배당수익률이 높지만, 주가 상승 시 수익이 제한되는 특성이 있습니다.',
+    },
+    {
+        q: '월배당 ETF에는 어떤 종목이 있나요?',
+        a: '대표적인 월배당 ETF로는 JEPI(JPMorgan Equity Premium Income), JEPQ(JPMorgan Nasdaq Equity Premium Income), QYLD(Global X Nasdaq 100 Covered Call), RYLD(Global X Russell 2000 Covered Call) 등이 있습니다. 모두 커버드콜 전략을 활용해 높은 월배당을 지급합니다.',
+    },
+    {
+        q: 'VYM ETF는 어떤 특징이 있나요?',
+        a: 'VYM(Vanguard High Dividend Yield ETF)은 뱅가드(Vanguard)가 운용하는 고배당 ETF로, 미국 고배당 주식 약 400개에 넓게 분산 투자합니다. 운용보수(0.06%)가 매우 낮고 안정적인 분기배당을 지급하여 장기 고배당 투자에 적합합니다.',
+    },
+    {
+        q: 'QYLD ETF는 어떤 특징이 있나요?',
+        a: 'QYLD(Global X Nasdaq 100 Covered Call ETF)는 나스닥100 전체를 보유하면서 콜옵션 전량을 매도하는 완전 커버드콜 전략으로 연 10~13% 수준의 높은 월배당을 지급합니다. 주가 상승 시 수익이 옵션 프리미엄으로 제한되는 특성이 있습니다.',
+    },
+    // ── 투자 전략 ──────────────────────────────
+    {
+        q: '배당재투자(DRIP)란 무엇인가요?',
+        a: '배당재투자(DRIP, Dividend Reinvestment Plan)는 받은 배당금을 현금으로 받지 않고 같은 주식이나 ETF를 자동으로 재매수하는 방법입니다. 복리 효과를 통해 장기적으로 자산을 더 빠르게 성장시킬 수 있어 장기 투자자에게 유리한 전략입니다.',
+    },
+    {
+        q: '배당주 투자의 장점은 무엇인가요?',
+        a: '①정기적인 현금 흐름: 배당금을 통해 주가 등락과 무관하게 소득을 얻을 수 있습니다. ②복리 효과: 배당금을 재투자하면 장기간 복리로 자산이 성장합니다. ③심리적 안정: 배당수익률이 하락폭을 일부 완충해 주가 하락 시에도 안정감을 줍니다. ④인플레이션 방어: 배당 성장형 주식은 배당금이 매년 늘어나 인플레이션을 방어합니다.',
+    },
+    {
+        q: '분기배당과 월배당 중 어느 것이 더 유리한가요?',
+        a: '월배당 ETF(JEPI, JEPQ 등)는 배당수익률이 높고 현금 흐름이 잦아 생활비에 활용하기 좋습니다. 분기배당 ETF(SCHD, VYM 등)는 배당 성장률이 높고 주가 상승 여력이 커 장기 자산 증식에 유리합니다. 두 가지를 적절히 혼합하는 포트폴리오가 일반적으로 권장됩니다.',
+    },
+    {
+        q: '고배당주에 투자할 때 주의할 점은 무엇인가요?',
+        a: '①배당수익률이 지나치게 높은 주식(10% 이상)은 배당 지속 가능성을 반드시 확인해야 합니다. ②배당성향(Payout Ratio)이 100%를 초과하는 기업은 배당 삭감 위험이 있습니다. ③커버드콜 ETF는 주가 상승 시 수익이 제한됩니다. ④세금 부담을 사전에 계산해야 합니다.',
+    },
+    {
+        q: '배당주 포트폴리오는 어떻게 구성하나요?',
+        a: '①안정형: SCHD + VYM + DVY (분기배당 ETF 중심, 배당 성장 추구) ②수익형: JEPI + JEPQ + QYLD (월배당 ETF 중심, 높은 현금 흐름) ③혼합형: SCHD 40% + JEPI 30% + 개별주(삼성전자 등) 30% (성장+배당 균형). 개인 투자 목표, 세금 상황, 위험 허용 범위에 따라 비중을 조정하세요.',
+    },
+    {
+        q: 'ETF 배당수익률은 어디서 확인하나요?',
+        a: '배당의 민족에서 종목 코드를 검색하면 배당수익률, 최근 배당락일, 지급일, 주당배당금(DPS)을 실시간으로 확인할 수 있습니다. 또한 ETF 운용사 공식 웹사이트, Yahoo Finance, ETF.com 등에서도 확인 가능합니다.',
+    },
+    {
+        q: '삼성전자 배당금은 어떻게 확인하나요?',
+        a: '삼성전자(005930)는 2022년부터 분기 배당을 실시하고 있습니다. 배당의 민족에서 "삼성전자" 또는 "005930"을 검색하면 최근 배당락일, 배당금, 배당수익률을 바로 확인할 수 있습니다. 연간 총 배당금은 매년 1월 이사회에서 발표됩니다.',
+    },
+    {
+        q: '미국 배당주와 한국 배당주 중 어느 것이 유리한가요?',
+        a: '미국 배당주(SCHD, JEPI 등)는 배당수익률이 안정적이고, 달러 자산으로 환율 헤지 효과가 있으며 ETF 종류가 다양합니다. 한국 배당주(삼성전자 등)는 원화 투자로 환위험이 없고 거래가 간편합니다. 다만 한국 기업은 배당 성향이 상대적으로 낮아 수익률이 낮은 경우가 많습니다. 두 시장에 분산 투자하는 것이 일반적으로 권장됩니다.',
+    },
 ];
+
+// ─────────────────────────────────────────────
+// 12-A. PopularStocksGuide
+// ─────────────────────────────────────────────
+const POPULAR_ETF_DATA = [
+    {
+        ticker: 'JEPI',
+        nameKo: 'JPMorgan Equity Premium Income ETF',
+        freq: '월배당',
+        freqColor: 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30',
+        yieldRange: '약 7~9%',
+        desc: 'S&P 500 기반 커버드콜(ELN) 전략으로 매월 안정적인 배당을 지급하는 고배당 ETF. 배당수익률이 높고 변동성이 낮아 은퇴 포트폴리오에 적합합니다.',
+    },
+    {
+        ticker: 'JEPQ',
+        nameKo: 'JPMorgan Nasdaq Equity Premium Income ETF',
+        freq: '월배당',
+        freqColor: 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30',
+        yieldRange: '약 9~12%',
+        desc: '나스닥100 기반 커버드콜 전략으로 JEPI보다 높은 배당수익률을 제공하는 월배당 ETF. 기술주 성장성과 높은 배당을 함께 추구합니다.',
+    },
+    {
+        ticker: 'SCHD',
+        nameKo: 'Schwab U.S. Dividend Equity ETF',
+        freq: '분기배당',
+        freqColor: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30',
+        yieldRange: '약 3.5~4.5%',
+        desc: '미국 고배당 우량주에 투자하는 분기배당 ETF. 10년 이상 꾸준히 배당을 성장시킨 기업 중심으로 구성되어 배당 성장성이 뛰어납니다.',
+    },
+    {
+        ticker: 'QYLD',
+        nameKo: 'Global X Nasdaq 100 Covered Call ETF',
+        freq: '월배당',
+        freqColor: 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30',
+        yieldRange: '약 10~13%',
+        desc: '나스닥100 전체를 보유하면서 콜옵션을 매도하는 완전 커버드콜 전략. 매우 높은 월배당을 지급하지만 주가 상승 수익은 제한됩니다.',
+    },
+    {
+        ticker: 'VYM',
+        nameKo: 'Vanguard High Dividend Yield ETF',
+        freq: '분기배당',
+        freqColor: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30',
+        yieldRange: '약 2.8~3.5%',
+        desc: '뱅가드에서 운용하는 미국 고배당 ETF. 400여 개 고배당 우량주에 넓게 분산 투자하며 낮은 운용 보수와 안정적인 배당이 특징입니다.',
+    },
+    {
+        ticker: 'DVY',
+        nameKo: 'iShares Select Dividend ETF',
+        freq: '분기배당',
+        freqColor: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30',
+        yieldRange: '약 4~6%',
+        desc: '배당수익률 상위 100개 미국 주식으로 구성된 고배당 ETF. SCHD보다 높은 배당수익률을 제공하며 배당 지속성이 높은 기업 중심으로 구성됩니다.',
+    },
+];
+
+const POPULAR_KR_DATA = [
+    {
+        ticker: '005930',
+        name: '삼성전자',
+        freq: '분기배당',
+        freqColor: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30',
+        yieldRange: '약 2~3%',
+        desc: '국내 최대 반도체·스마트폰 기업. 2022년부터 분기 배당을 실시해 매년 3·6·9·12월에 배당금을 지급합니다. 연간 총 배당금은 매년 1월 이사회에서 결정합니다.',
+    },
+    {
+        ticker: '000660',
+        name: 'SK하이닉스',
+        freq: '연배당',
+        freqColor: 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30',
+        yieldRange: '약 0.5~1.5%',
+        desc: '국내 2위 메모리 반도체 기업. AI 반도체 수혜주로 최근 주주환원을 강화 중입니다. 배당기준일은 매년 12월 말이며 이듬해 봄에 지급합니다.',
+    },
+    {
+        ticker: '035420',
+        name: 'NAVER',
+        freq: '연배당',
+        freqColor: 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30',
+        yieldRange: '약 0.2~0.5%',
+        desc: '국내 최대 포털·IT 기업. 배당보다 성장 투자에 집중하는 정책이나 주주환원 강화 기조로 배당이 점진적으로 증가하는 추세입니다.',
+    },
+];
+
+function PopularStocksGuide() {
+    return (
+        <section
+            aria-label="인기 배당 ETF 및 배당주 가이드"
+            className="max-w-screen-lg w-full mx-auto px-3 sm:px-6 pb-6"
+        >
+            <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3 px-1">
+                인기 배당 ETF · 배당주 가이드
+            </h2>
+            <h3 className="text-xs font-semibold text-orange-500 uppercase tracking-wider mb-2 px-1">
+                미국 배당 ETF – JEPI · JEPQ · SCHD · QYLD · VYM · DVY
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 mb-5">
+                {POPULAR_ETF_DATA.map((s) => (
+                    <article
+                        key={s.ticker}
+                        className="rounded-xl border border-slate-200/80 dark:border-slate-800/60 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl shadow-sm p-4"
+                    >
+                        <div className="flex items-center gap-2 mb-2">
+                            <span className="text-base font-black text-slate-900 dark:text-white">{s.ticker}</span>
+                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${s.freqColor}`}>
+                                {s.freq}
+                            </span>
+                        </div>
+                        <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">{s.nameKo}</p>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed mb-2">{s.desc}</p>
+                        <p className="text-xs text-orange-500 font-semibold">배당수익률 {s.yieldRange}</p>
+                    </article>
+                ))}
+            </div>
+            <h3 className="text-xs font-semibold text-orange-500 uppercase tracking-wider mb-2 px-1">
+                한국 배당주 – 삼성전자 · SK하이닉스 · NAVER
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                {POPULAR_KR_DATA.map((s) => (
+                    <article
+                        key={s.ticker}
+                        className="rounded-xl border border-slate-200/80 dark:border-slate-800/60 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl shadow-sm p-4"
+                    >
+                        <div className="flex items-center gap-2 mb-2">
+                            <span className="text-base font-black text-slate-900 dark:text-white">{s.name}</span>
+                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${s.freqColor}`}>
+                                {s.freq}
+                            </span>
+                        </div>
+                        <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">{s.ticker}</p>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed mb-2">{s.desc}</p>
+                        <p className="text-xs text-orange-500 font-semibold">배당수익률 {s.yieldRange}</p>
+                    </article>
+                ))}
+            </div>
+        </section>
+    );
+}
 
 function FaqSection() {
     const [openIdx, setOpenIdx] = React.useState(null);
@@ -1865,6 +2073,19 @@ function DashboardApp() {
                     </div>
                 </div>
             </main>
+
+            {/* ── 카카오 애드핏 배너 ── */}
+            <div className="flex justify-center py-3">
+                <ins
+                    className="kakao_ad_area"
+                    style={{ display: 'none' }}
+                    data-ad-unit="DAN-r8PXuWpA6HfKB4GQ"
+                    data-ad-width="320"
+                    data-ad-height="50"
+                />
+            </div>
+
+            <PopularStocksGuide />
 
             <FaqSection />
 
