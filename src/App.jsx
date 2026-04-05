@@ -88,15 +88,13 @@ function useTheme() {
     return ctx;
 }
 
-function SearchBar({ onSelect, onFetch, liveCache }) {
+function SearchBar({ onSelect, onFetch, liveCache, krStocks, krEtfs }) {
     const [query, setQuery] = useState('');
     const [open, setOpen] = useState(false);
     const [debounced, setDebounced] = useState('');
     const [suggestions, setSuggestions] = useState([]);
     const [loadingSuggest, setLoadingSuggest] = useState(false);
     const [errorSuggest, setErrorSuggest] = useState(null);
-    const [krStocks, setKrStocks] = useState([]);
-    const [krEtfs, setKrEtfs] = useState([]);
     const wrapRef = useRef(null);
     const norm = (v) => v.trim().toLowerCase();
     const q = norm(query.trim());
@@ -106,22 +104,6 @@ function SearchBar({ onSelect, onFetch, liveCache }) {
         const t = setTimeout(() => setDebounced(query.trim()), 250);
         return () => clearTimeout(t);
     }, [query]);
-
-    // 한국 종목 목록 1회 로드
-    useEffect(() => {
-        fetch('/api/kr-stocks')
-            .then((r) => (r.ok ? r.json() : []))
-            .then((data) => setKrStocks(Array.isArray(data) ? data : []))
-            .catch(() => {});
-    }, []);
-
-    // 한국 ETF 목록 1회 로드
-    useEffect(() => {
-        fetch('/api/kr-etfs')
-            .then((r) => (r.ok ? r.json() : []))
-            .then((data) => setKrEtfs(Array.isArray(data) ? data : []))
-            .catch(() => {});
-    }, []);
 
     // 드롭다운 외부 클릭 시 닫기
     useEffect(() => {
@@ -1527,6 +1509,22 @@ function DashboardApp() {
     const [exchangeRate, setExchangeRate] = useState(null);
     const [exchangeRateUpdatedAt, setExchangeRateUpdatedAt] = useState(null);
 
+    // 한국 종목·ETF 목록 (fetchLiveStock + SearchBar 공유)
+    const [krStocks, setKrStocks] = useState([]);
+    const [krEtfs, setKrEtfs] = useState([]);
+    useEffect(() => {
+        fetch('/api/kr-stocks')
+            .then((r) => (r.ok ? r.json() : []))
+            .then((data) => setKrStocks(Array.isArray(data) ? data : []))
+            .catch(() => {});
+    }, []);
+    useEffect(() => {
+        fetch('/api/kr-etfs')
+            .then((r) => (r.ok ? r.json() : []))
+            .then((data) => setKrEtfs(Array.isArray(data) ? data : []))
+            .catch(() => {});
+    }, []);
+
     const inferFrequency = (events, fallbackYield, country, ticker, quoteType) => {
         // 명백한 무배당 종목만 overrides (최소화)
         const nonDividendOverrides = new Set(['GLD', 'GLD.AX', 'IAU', 'SLV', 'BTC-USD']);
@@ -1677,234 +1675,251 @@ function DashboardApp() {
         return [];
     };
 
-    const fetchLiveStock = useCallback(async (symbolInput) => {
-        const raw = symbolInput.trim();
-        const normalized = normalizeSymbol(raw);
-        if (!normalized) throw new Error('티커를 입력하세요');
+    const fetchLiveStock = useCallback(
+        async (symbolInput) => {
+            const raw = symbolInput.trim();
+            const normalized = normalizeSymbol(raw);
+            if (!normalized) throw new Error('티커를 입력하세요');
 
-        let resolvedSymbol = normalized;
-        let krShortName = null;
-        let krLongName = null;
-        if (/[가-힣]/.test(raw) || /\s/.test(raw)) {
-            try {
-                const searchRes = await fetch(`/api/search?q=${encodeURIComponent(raw)}&lang=ko-KR&region=KR`);
-                if (searchRes.ok) {
-                    const data = await searchRes.json();
-                    const picks = (data.quotes || []).filter((q) => q.symbol && q.quoteType !== 'CRYPTOCURRENCY');
-                    const ranked = picks.sort((a, b) => {
-                        const score = (q) => {
-                            const sym = q.symbol?.toUpperCase() || '';
-                            const ex = (q.exchDisp || q.exchange || '').toUpperCase();
-                            let s = 0;
-                            if (/\.KS$/.test(sym) || ex.includes('KSC') || ex.includes('KOSPI')) s += 3;
-                            if (/\.KQ$/.test(sym) || ex.includes('KOSDAQ')) s += 2;
-                            if (/^[0-9]{6}$/.test(sym) || sym.includes('KRX')) s += 1.5;
-                            return s;
-                        };
-                        return score(b) - score(a);
-                    });
-                    const cand = ranked[0];
-                    if (cand && cand.symbol) {
-                        resolvedSymbol = normalizeSymbol(cand.symbol);
-                        krShortName = cand.shortname || null;
-                        krLongName = cand.longname || null;
-                    }
+            let resolvedSymbol = normalized;
+            let krShortName = null;
+            let krLongName = null;
+
+            // ── CSV 로컬 선행 조회: 6자리 코드 기반 한글명 확보 ──
+            const csvSixDigit = extractSixDigit(raw) || extractSixDigit(normalized);
+            if (csvSixDigit) {
+                const csvMatch = [...krStocks, ...krEtfs].find((s) => s.code === csvSixDigit);
+                if (csvMatch) {
+                    krShortName = csvMatch.shortName || csvMatch.name || null;
+                    krLongName = csvMatch.name || null;
                 }
-            } catch (_) {}
-        }
-
-        const codeCandidate = extractSixDigit(raw) || extractSixDigit(normalized);
-        const symbolCandidates = [];
-        const pushCandidate = (sym) => {
-            if (!sym) return;
-            const cleaned = sym.trim().toUpperCase();
-            if (!/[A-Z0-9]/.test(cleaned)) return;
-            if (!symbolCandidates.includes(cleaned)) symbolCandidates.push(cleaned);
-        };
-
-        pushCandidate(resolvedSymbol);
-        if (resolvedSymbol.endsWith('.KS')) pushCandidate(resolvedSymbol.replace(/\.KS$/, '.KQ'));
-        if (resolvedSymbol.endsWith('.KQ')) pushCandidate(resolvedSymbol.replace(/\.KQ$/, '.KS'));
-        if (codeCandidate) {
-            pushCandidate(`${codeCandidate}.KS`);
-            pushCandidate(`${codeCandidate}.KQ`);
-        }
-
-        let quote = null;
-        for (const sym of symbolCandidates) {
-            const quoteRes = await fetch(`/api/quote?symbol=${encodeURIComponent(sym)}`);
-            if (!quoteRes.ok) continue;
-            quote = await quoteRes.json();
-            resolvedSymbol = sym;
-            break;
-        }
-        if (!quote) throw new Error('실시간 시세 조회 실패');
-
-        const sd = quote._summaryDetail ?? {};
-        const ce = quote._calendarEvents ?? {};
-        const currencyGuess = sd.currency || quote.currency || (resolvedSymbol.endsWith('.KS') ? 'KRW' : 'USD');
-        const currency = currencyGuess || 'USD';
-        const price =
-            quote.regularMarketPrice ??
-            sd.regularMarketPreviousClose ??
-            sd.previousClose ??
-            quote.postMarketPrice ??
-            quote.bid ??
-            quote.ask ??
-            quote.previousClose ??
-            0;
-        let annualDPS = sd.dividendRate ?? sd.trailingAnnualDividendRate ?? quote.trailingAnnualDividendRate ?? 0;
-        const rawYield =
-            sd.dividendYield ?? sd.yield ?? sd.trailingAnnualDividendYield ?? quote.trailingAnnualDividendYield ?? null;
-        // yahoo-finance2는 소수(0.05 = 5%) 반환 → 항상 *100
-        let dividendYield = rawYield != null ? rawYield * 100 : price && annualDPS ? (annualDPS / price) * 100 : 0;
-        const baseName = quote.longName || quote.shortName || quote.symbol || resolvedSymbol.toUpperCase();
-        const country = currency === 'KRW' ? 'KR' : 'US';
-        const displayName =
-            country === 'KR'
-                ? krShortName || quote.shortName || krLongName || baseName || resolvedSymbol.toUpperCase()
-                : baseName;
-        const fullName = krLongName || baseName || displayName;
-        const name = displayName;
-        const baseSymbol = normalized;
-        const taxRate = country === 'KR' ? 0.154 : 0.15;
-
-        // KR 종목인데 한글명이 아직 없으면 6자리 코드로 검색해서 한글명 취득
-        if (country === 'KR' && !krShortName && !krLongName) {
-            try {
-                const sixDigit = resolvedSymbol.replace(/\.(KS|KQ)$/i, '');
-                const krRes = await fetch(`/api/search?q=${encodeURIComponent(sixDigit)}&lang=ko-KR&region=KR`);
-                if (krRes.ok) {
-                    const krData = await krRes.json();
-                    const krMatch = (krData.quotes || []).find(
-                        (q) =>
-                            normalizeSymbol(q.symbol) === resolvedSymbol ||
-                            q.symbol?.replace(/^KRX:/i, '') + '.KS' === resolvedSymbol,
-                    );
-                    if (krMatch) {
-                        krShortName = krMatch.shortname || null;
-                        krLongName = krMatch.longname || null;
-                    }
-                }
-            } catch (_) {}
-        }
-
-        const aliases = [
-            displayName,
-            fullName,
-            quote.shortName,
-            quote.longName,
-            quote.symbol,
-            quote.quoteType,
-            symbolInput,
-            baseSymbol.replace(/\.KS$/, ''),
-            baseSymbol.replace(/\.KQ$/, ''),
-            resolvedSymbol,
-            krShortName,
-            krLongName,
-        ]
-            .map((v) => (v == null ? '' : v.toString().trim()))
-            .filter((v) => v.length > 0);
-        const quoteType = quote.quoteType || '';
-        const sector = quote.market || quoteType || 'N/A';
-
-        let events = [];
-        if (country === 'KR') {
-            try {
-                events = await fetchKsdDividends(resolvedSymbol);
-            } catch (err) {
-                console.warn('KSD dividend fetch failed', err);
             }
-        }
-
-        if (events.length === 0) {
-            try {
-                const divRes = await fetch(
-                    `/api/dividends?symbol=${encodeURIComponent(resolvedSymbol)}&from=1990-01-01`,
-                );
-                if (divRes.ok) {
-                    const divs = await divRes.json();
-                    events = (divs || [])
-                        .map((ev) => {
-                            const dt = new Date(ev.date || ev.exDate || ev.payDate || Date.now());
-                            const exDate = dt.toISOString().slice(0, 10);
-                            const payDate = ev.payDate ? String(ev.payDate).slice(0, 10) : exDate;
-                            const dps = Number(ev.amount ?? ev.dividends ?? ev.cash ?? ev.value ?? 0);
-                            return { exDate, payDate, dps };
-                        })
-                        .filter((ev) => !Number.isNaN(ev.dps))
-                        .sort((a, b) => new Date(a.exDate) - new Date(b.exDate));
-                }
-            } catch (err) {
-                console.warn('dividend fetch failed', err);
+            if (/[가-힣]/.test(raw) || /\s/.test(raw)) {
+                try {
+                    const searchRes = await fetch(`/api/search?q=${encodeURIComponent(raw)}&lang=ko-KR&region=KR`);
+                    if (searchRes.ok) {
+                        const data = await searchRes.json();
+                        const picks = (data.quotes || []).filter((q) => q.symbol && q.quoteType !== 'CRYPTOCURRENCY');
+                        const ranked = picks.sort((a, b) => {
+                            const score = (q) => {
+                                const sym = q.symbol?.toUpperCase() || '';
+                                const ex = (q.exchDisp || q.exchange || '').toUpperCase();
+                                let s = 0;
+                                if (/\.KS$/.test(sym) || ex.includes('KSC') || ex.includes('KOSPI')) s += 3;
+                                if (/\.KQ$/.test(sym) || ex.includes('KOSDAQ')) s += 2;
+                                if (/^[0-9]{6}$/.test(sym) || sym.includes('KRX')) s += 1.5;
+                                return s;
+                            };
+                            return score(b) - score(a);
+                        });
+                        const cand = ranked[0];
+                        if (cand && cand.symbol) {
+                            resolvedSymbol = normalizeSymbol(cand.symbol);
+                            krShortName = cand.shortname || null;
+                            krLongName = cand.longname || null;
+                        }
+                    }
+                } catch (_) {}
             }
-        }
 
-        if (events.length === 0) {
-            // quoteSummary는 Date 객체 반환, quote()는 Unix초 반환 → 양쪽 처리
-            const toDate = (v) => {
-                if (!v) return null;
-                if (v instanceof Date) return v;
-                const n = Number(v);
-                return n > 1e9 ? new Date(n * 1000) : new Date(v);
+            const codeCandidate = extractSixDigit(raw) || extractSixDigit(normalized);
+            const symbolCandidates = [];
+            const pushCandidate = (sym) => {
+                if (!sym) return;
+                const cleaned = sym.trim().toUpperCase();
+                if (!/[A-Z0-9]/.test(cleaned)) return;
+                if (!symbolCandidates.includes(cleaned)) symbolCandidates.push(cleaned);
             };
-            const exDivRaw = sd.exDividendDate ?? ce.exDividendDate ?? quote.exDividendDate;
-            const payRaw = ce.dividendDate ?? quote.dividendDate;
-            const exDiv = toDate(exDivRaw);
-            const pay = toDate(payRaw);
-            if (exDiv && !isNaN(exDiv.getTime())) {
-                const exDate = exDiv.toISOString().slice(0, 10);
-                const payDate = pay ? pay.toISOString().slice(0, 10) : exDate;
-                events = [{ exDate, payDate, dps: Number(annualDPS) || 0 }];
+
+            pushCandidate(resolvedSymbol);
+            if (resolvedSymbol.endsWith('.KS')) pushCandidate(resolvedSymbol.replace(/\.KS$/, '.KQ'));
+            if (resolvedSymbol.endsWith('.KQ')) pushCandidate(resolvedSymbol.replace(/\.KQ$/, '.KS'));
+            if (codeCandidate) {
+                pushCandidate(`${codeCandidate}.KS`);
+                pushCandidate(`${codeCandidate}.KQ`);
             }
-        }
 
-        // 국내 종목 등 배당 정보가 비어있을 때 이벤트 기반으로 DPS/Yield 추론
-        if (annualDPS <= 0 && events.length > 0) {
-            const now = new Date();
-            const last12 = events.filter((ev) => {
-                const dt = parseDate(ev.exDate);
-                return now - dt <= 365 * 24 * 60 * 60 * 1000 && now >= dt;
-            });
-            const sum = (last12.length > 0 ? last12 : events).reduce((acc, ev) => acc + (Number(ev.dps) || 0), 0);
-            annualDPS = sum;
-        }
-        if (dividendYield <= 0 && price && annualDPS) {
-            dividendYield = (annualDPS / price) * 100;
-        }
+            let quote = null;
+            for (const sym of symbolCandidates) {
+                const quoteRes = await fetch(`/api/quote?symbol=${encodeURIComponent(sym)}`);
+                if (!quoteRes.ok) continue;
+                quote = await quoteRes.json();
+                resolvedSymbol = sym;
+                break;
+            }
+            if (!quote) throw new Error('실시간 시세 조회 실패');
 
-        const frequency = inferFrequency(
-            events,
-            dividendYield,
-            country,
-            (quote.symbol || resolvedSymbol).toUpperCase(),
-            quoteType,
-        );
+            const sd = quote._summaryDetail ?? {};
+            const ce = quote._calendarEvents ?? {};
+            const currencyGuess = sd.currency || quote.currency || (resolvedSymbol.endsWith('.KS') ? 'KRW' : 'USD');
+            const currency = currencyGuess || 'USD';
+            const price =
+                quote.regularMarketPrice ??
+                sd.regularMarketPreviousClose ??
+                sd.previousClose ??
+                quote.postMarketPrice ??
+                quote.bid ??
+                quote.ask ??
+                quote.previousClose ??
+                0;
+            let annualDPS = sd.dividendRate ?? sd.trailingAnnualDividendRate ?? quote.trailingAnnualDividendRate ?? 0;
+            const rawYield =
+                sd.dividendYield ??
+                sd.yield ??
+                sd.trailingAnnualDividendYield ??
+                quote.trailingAnnualDividendYield ??
+                null;
+            // yahoo-finance2는 소수(0.05 = 5%) 반환 → 항상 *100
+            let dividendYield = rawYield != null ? rawYield * 100 : price && annualDPS ? (annualDPS / price) * 100 : 0;
+            const baseName = quote.longName || quote.shortName || quote.symbol || resolvedSymbol.toUpperCase();
+            const country = currency === 'KRW' ? 'KR' : 'US';
+            const displayName =
+                country === 'KR'
+                    ? krShortName || quote.shortName || krLongName || baseName || resolvedSymbol.toUpperCase()
+                    : baseName;
+            const fullName = krLongName || baseName || displayName;
+            const name = displayName;
+            const baseSymbol = normalized;
+            const taxRate = country === 'KR' ? 0.154 : 0.15;
 
-        const description =
-            country === 'KR'
-                ? `${fullName || name} · 한국예탁결제원 배당정보 + Yahoo Finance`
-                : `${name} · Yahoo Finance 실시간 데이터`;
+            // KR 종목인데 한글명이 아직 없으면 6자리 코드로 검색해서 한글명 취득
+            if (country === 'KR' && !krShortName && !krLongName) {
+                try {
+                    const sixDigit = resolvedSymbol.replace(/\.(KS|KQ)$/i, '');
+                    const krRes = await fetch(`/api/search?q=${encodeURIComponent(sixDigit)}&lang=ko-KR&region=KR`);
+                    if (krRes.ok) {
+                        const krData = await krRes.json();
+                        const krMatch = (krData.quotes || []).find(
+                            (q) =>
+                                normalizeSymbol(q.symbol) === resolvedSymbol ||
+                                q.symbol?.replace(/^KRX:/i, '') + '.KS' === resolvedSymbol,
+                        );
+                        if (krMatch) {
+                            krShortName = krMatch.shortname || null;
+                            krLongName = krMatch.longname || null;
+                        }
+                    }
+                } catch (_) {}
+            }
 
-        return {
-            ticker: (quote.symbol || resolvedSymbol).toUpperCase(),
-            name,
-            displayName: name,
-            fullName,
-            aliases,
-            country,
-            currency,
-            quoteType,
-            currentPrice: Number(price) || 0,
-            dividendYield: Number(dividendYield.toFixed(2)),
-            annualDPS: Number(annualDPS) || 0,
-            frequency,
-            taxRate,
-            sector,
-            description,
-            events,
-        };
-    }, []);
+            const aliases = [
+                displayName,
+                fullName,
+                quote.shortName,
+                quote.longName,
+                quote.symbol,
+                quote.quoteType,
+                symbolInput,
+                baseSymbol.replace(/\.KS$/, ''),
+                baseSymbol.replace(/\.KQ$/, ''),
+                resolvedSymbol,
+                krShortName,
+                krLongName,
+            ]
+                .map((v) => (v == null ? '' : v.toString().trim()))
+                .filter((v) => v.length > 0);
+            const quoteType = quote.quoteType || '';
+            const sector = quote.market || quoteType || 'N/A';
+
+            let events = [];
+            if (country === 'KR') {
+                try {
+                    events = await fetchKsdDividends(resolvedSymbol);
+                } catch (err) {
+                    console.warn('KSD dividend fetch failed', err);
+                }
+            }
+
+            if (events.length === 0) {
+                try {
+                    const divRes = await fetch(
+                        `/api/dividends?symbol=${encodeURIComponent(resolvedSymbol)}&from=1990-01-01`,
+                    );
+                    if (divRes.ok) {
+                        const divs = await divRes.json();
+                        events = (divs || [])
+                            .map((ev) => {
+                                const dt = new Date(ev.date || ev.exDate || ev.payDate || Date.now());
+                                const exDate = dt.toISOString().slice(0, 10);
+                                const payDate = ev.payDate ? String(ev.payDate).slice(0, 10) : exDate;
+                                const dps = Number(ev.amount ?? ev.dividends ?? ev.cash ?? ev.value ?? 0);
+                                return { exDate, payDate, dps };
+                            })
+                            .filter((ev) => !Number.isNaN(ev.dps))
+                            .sort((a, b) => new Date(a.exDate) - new Date(b.exDate));
+                    }
+                } catch (err) {
+                    console.warn('dividend fetch failed', err);
+                }
+            }
+
+            if (events.length === 0) {
+                // quoteSummary는 Date 객체 반환, quote()는 Unix초 반환 → 양쪽 처리
+                const toDate = (v) => {
+                    if (!v) return null;
+                    if (v instanceof Date) return v;
+                    const n = Number(v);
+                    return n > 1e9 ? new Date(n * 1000) : new Date(v);
+                };
+                const exDivRaw = sd.exDividendDate ?? ce.exDividendDate ?? quote.exDividendDate;
+                const payRaw = ce.dividendDate ?? quote.dividendDate;
+                const exDiv = toDate(exDivRaw);
+                const pay = toDate(payRaw);
+                if (exDiv && !isNaN(exDiv.getTime())) {
+                    const exDate = exDiv.toISOString().slice(0, 10);
+                    const payDate = pay ? pay.toISOString().slice(0, 10) : exDate;
+                    events = [{ exDate, payDate, dps: Number(annualDPS) || 0 }];
+                }
+            }
+
+            // 국내 종목 등 배당 정보가 비어있을 때 이벤트 기반으로 DPS/Yield 추론
+            if (annualDPS <= 0 && events.length > 0) {
+                const now = new Date();
+                const last12 = events.filter((ev) => {
+                    const dt = parseDate(ev.exDate);
+                    return now - dt <= 365 * 24 * 60 * 60 * 1000 && now >= dt;
+                });
+                const sum = (last12.length > 0 ? last12 : events).reduce((acc, ev) => acc + (Number(ev.dps) || 0), 0);
+                annualDPS = sum;
+            }
+            if (dividendYield <= 0 && price && annualDPS) {
+                dividendYield = (annualDPS / price) * 100;
+            }
+
+            const frequency = inferFrequency(
+                events,
+                dividendYield,
+                country,
+                (quote.symbol || resolvedSymbol).toUpperCase(),
+                quoteType,
+            );
+
+            const description =
+                country === 'KR'
+                    ? `${fullName || name} · 한국예탁결제원 배당정보 + Yahoo Finance`
+                    : `${name} · Yahoo Finance 실시간 데이터`;
+
+            return {
+                ticker: (quote.symbol || resolvedSymbol).toUpperCase(),
+                name,
+                displayName: name,
+                fullName,
+                aliases,
+                country,
+                currency,
+                quoteType,
+                currentPrice: Number(price) || 0,
+                dividendYield: Number(dividendYield.toFixed(2)),
+                annualDPS: Number(annualDPS) || 0,
+                frequency,
+                taxRate,
+                sector,
+                description,
+                events,
+            };
+        },
+        [krStocks, krEtfs],
+    );
 
     const fetchExchangeRate = useCallback(async () => {
         const tryFetch = async (url, extract) => {
@@ -2031,7 +2046,13 @@ function DashboardApp() {
                     </div>
 
                     <div className="flex-1 flex justify-center">
-                        <SearchBar onSelect={handleSearch} onFetch={handleFetchLive} liveCache={liveCache} />
+                        <SearchBar
+                            onSelect={handleSearch}
+                            onFetch={handleFetchLive}
+                            liveCache={liveCache}
+                            krStocks={krStocks}
+                            krEtfs={krEtfs}
+                        />
                     </div>
 
                     <button
