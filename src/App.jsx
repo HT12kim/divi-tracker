@@ -19,7 +19,18 @@ import {
     BookmarkPlus,
     AlertCircle,
 } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import {
+    LineChart,
+    Line,
+    BarChart,
+    Bar,
+    Cell,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
+    ResponsiveContainer,
+} from 'recharts';
 // ─────────────────────────────────────────────
 // 2. 프리셋 티커 (표시용)
 // ─────────────────────────────────────────────
@@ -1098,6 +1109,8 @@ function DpsBarChart({ stock }) {
     const gridColor = dark ? '#1e293b' : '#f1f5f9';
     const tooltipBg = dark ? '#0f172a' : '#ffffff';
     const tooltipBorder = dark ? '#1f2937' : '#e2e8f0';
+    const tooltipText = dark ? '#e2e8f0' : '#1e293b';
+    const tooltipSubText = dark ? '#818cf8' : '#6366f1';
 
     // 첫 배당 시점부터 최신 데이터까지 연속 시각화 (가능한 모든 이벤트 포함)
     const historyEvents = (stock.events || []).slice().sort((a, b) => parseDate(a.exDate) - parseDate(b.exDate));
@@ -1112,12 +1125,10 @@ function DpsBarChart({ stock }) {
         return (
             <div
                 className="rounded-xl shadow-lg p-3 text-xs"
-                style={{ background: tooltipBg, border: '1px solid ' + tooltipBorder }}
+                style={{ background: tooltipBg, border: '1px solid ' + tooltipBorder, color: tooltipText }}
             >
                 <p className="font-semibold mb-1">{label}</p>
-                <p className="text-indigo-500 dark:text-indigo-400">
-                    세후: {fmtNum(payload[0] && payload[0].value, stock.currency)}
-                </p>
+                <p style={{ color: tooltipSubText }}>세후: {fmtNum(payload[0] && payload[0].value, stock.currency)}</p>
             </div>
         );
     };
@@ -1513,12 +1524,192 @@ function EmptyState({ onPickTicker }) {
 }
 
 // ─────────────────────────────────────────────
+// 13-A. EtpHoldingsContainer
+// ─────────────────────────────────────────────
+function EtpHoldingsContainer({ stock, holdingsData, loading }) {
+    const { dark } = useTheme();
+    if (!stock || stock.quoteType !== 'ETF') return null;
+
+    const holdings = holdingsData?.holdings || [];
+    const source = holdingsData?.source || '';
+    const hasError = holdingsData?.error && holdings.length === 0;
+    const debugError = holdingsData?.debug_error || null;
+    const isKR = stock.country === 'KR';
+
+    const chartData = holdings.slice(0, 10).map((h) => ({
+        name: h.name.length > 12 ? h.name.slice(0, 11) + '…' : h.name,
+        weight: h.weight,
+    }));
+
+    const axisColor = dark ? '#94a3b8' : '#64748b';
+    const tooltipBg = dark ? '#0f172a' : '#ffffff';
+    const tooltipBorder = dark ? '#1f2937' : '#e2e8f0';
+    const barColors = [
+        '#6366f1',
+        '#818cf8',
+        '#818cf8',
+        '#a5b4fc',
+        '#a5b4fc',
+        '#c7d2fe',
+        '#c7d2fe',
+        '#c7d2fe',
+        '#c7d2fe',
+        '#c7d2fe',
+    ];
+
+    return (
+        <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 p-4 sm:p-5 shadow-xl">
+            <div className="flex items-center gap-2 mb-4">
+                <BarChart2 className="w-4 h-4 text-indigo-500" />
+                <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                    구성종목{holdings.length > 0 ? ` (상위 ${holdings.length}개)` : ''}
+                </h2>
+                {source && (
+                    <span className="ml-auto text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
+                        {source}
+                    </span>
+                )}
+            </div>
+
+            {loading && !holdingsData && (
+                <div className="flex flex-col gap-2">
+                    {[1, 2, 3].map((i) => (
+                        <div key={i} className="h-8 rounded-lg bg-slate-100 dark:bg-slate-800 animate-pulse" />
+                    ))}
+                </div>
+            )}
+
+            {!loading && hasError && (
+                <div className="flex flex-col items-center gap-2 text-sm text-slate-400 dark:text-slate-500 py-6 justify-center">
+                    <div className="flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4" />
+                        구성종목 정보를 가져올 수 없습니다
+                    </div>
+                    {debugError && (
+                        <p className="text-[10px] text-slate-300 dark:text-slate-600 max-w-xs text-center break-all">
+                            {debugError}
+                        </p>
+                    )}
+                </div>
+            )}
+
+            {!loading && !holdingsData && (
+                <div className="flex flex-col gap-2">
+                    {[1, 2, 3].map((i) => (
+                        <div key={i} className="h-8 rounded-lg bg-slate-100 dark:bg-slate-800 animate-pulse" />
+                    ))}
+                </div>
+            )}
+
+            {holdings.length > 0 && (
+                <>
+                    {chartData.length > 0 && (
+                        <div className="mb-4">
+                            <ResponsiveContainer width="100%" height={Math.max(180, chartData.length * 26)}>
+                                <BarChart
+                                    layout="vertical"
+                                    data={chartData}
+                                    margin={{ top: 0, right: 48, left: 0, bottom: 0 }}
+                                >
+                                    <XAxis
+                                        type="number"
+                                        tick={{ fill: axisColor, fontSize: 10 }}
+                                        axisLine={false}
+                                        tickLine={false}
+                                        tickFormatter={(v) => v + '%'}
+                                    />
+                                    <YAxis
+                                        type="category"
+                                        dataKey="name"
+                                        width={96}
+                                        tick={{ fill: axisColor, fontSize: 10 }}
+                                        axisLine={false}
+                                        tickLine={false}
+                                    />
+                                    <Tooltip
+                                        formatter={(v) => [v.toFixed(2) + '%', '비중']}
+                                        contentStyle={{
+                                            background: tooltipBg,
+                                            border: '1px solid ' + tooltipBorder,
+                                            borderRadius: 8,
+                                            fontSize: 12,
+                                        }}
+                                    />
+                                    <Bar dataKey="weight" radius={[0, 4, 4, 0]} maxBarSize={18}>
+                                        {chartData.map((_, idx) => (
+                                            <Cell key={idx} fill={barColors[idx] || '#c7d2fe'} />
+                                        ))}
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    )}
+
+                    <div className="overflow-x-auto">
+                        <div className="max-h-64 overflow-y-auto">
+                            <table className="w-full text-xs">
+                                <thead className="sticky top-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur">
+                                    <tr>
+                                        {['#', '종목명', '티커', '비중']
+                                            .concat(isKR ? ['보유주수', '평가금액(억)'] : [])
+                                            .map((h) => (
+                                                <th
+                                                    key={h}
+                                                    className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap"
+                                                >
+                                                    {h}
+                                                </th>
+                                            ))}
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                    {holdings.map((h) => (
+                                        <tr
+                                            key={h.rank}
+                                            className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
+                                        >
+                                            <td className="px-3 py-2 text-slate-400 font-mono">{h.rank}</td>
+                                            <td className="px-3 py-2 font-medium text-slate-800 dark:text-slate-200 max-w-[140px] truncate">
+                                                {h.name}
+                                            </td>
+                                            <td className="px-3 py-2 font-mono text-slate-500 dark:text-slate-400">
+                                                {h.ticker || '—'}
+                                            </td>
+                                            <td className="px-3 py-2 font-semibold text-indigo-600 dark:text-indigo-400 whitespace-nowrap">
+                                                {h.weight.toFixed(2)}%
+                                            </td>
+                                            {isKR && (
+                                                <>
+                                                    <td className="px-3 py-2 text-right text-slate-500 dark:text-slate-400 font-mono whitespace-nowrap">
+                                                        {h.shares != null ? h.shares.toLocaleString() : '—'}
+                                                    </td>
+                                                    <td className="px-3 py-2 text-right text-slate-500 dark:text-slate-400 font-mono whitespace-nowrap">
+                                                        {h.value != null
+                                                            ? Math.round(h.value / 1e8).toLocaleString()
+                                                            : '—'}
+                                                    </td>
+                                                </>
+                                            )}
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </>
+            )}
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────
 // 13. StockDetailView
 // ─────────────────────────────────────────────
-function StockDetailView({ stock, exchangeRate = DEFAULT_EXCHANGE_RATE }) {
+function StockDetailView({ stock, exchangeRate = DEFAULT_EXCHANGE_RATE, holdingsData, loadingHoldings }) {
     return (
         <div className="flex-1 w-full flex flex-col gap-4 min-w-0">
             <StockInfoHeader stock={stock} />
+            <EtpHoldingsContainer stock={stock} holdingsData={holdingsData} loading={loadingHoldings} />
             <DividendTimeline stock={stock} />
             <div className="flex flex-col gap-4">
                 <DpsBarChart stock={stock} />
@@ -1577,6 +1768,9 @@ function DashboardApp() {
     const [loadingSymbol, setLoadingSymbol] = useState(null);
     const [exchangeRate, setExchangeRate] = useState(null);
     const [exchangeRateUpdatedAt, setExchangeRateUpdatedAt] = useState(null);
+    const [etpHoldings, setEtpHoldings] = useState({});
+    const [loadingHoldings, setLoadingHoldings] = useState(false);
+    const etpHoldingsFetchedRef = useRef(new Set());
 
     // 한국 종목·ETF 목록 (fetchLiveStock + SearchBar 공유)
     const [krStocks, setKrStocks] = useState([]);
@@ -2075,6 +2269,36 @@ function DashboardApp() {
         localStorage.setItem('dm-live-cache', JSON.stringify(liveCache));
     }, [liveCache]);
 
+    const fetchHoldings = useCallback(async (stock) => {
+        if (!stock || stock.quoteType !== 'ETF') return;
+        const ticker = stock.ticker;
+        if (etpHoldingsFetchedRef.current.has(ticker)) return;
+        etpHoldingsFetchedRef.current.add(ticker);
+        setLoadingHoldings(true);
+        try {
+            const isKR = stock.country === 'KR' || ticker.includes('.KS') || ticker.includes('.KQ');
+            const country = isKR ? 'KR' : 'US';
+            const m = ticker.match(/(\d{6})/);
+            const symbol = isKR && m ? m[1] : ticker;
+            const res = await fetch(`/api/holdings?symbol=${encodeURIComponent(symbol)}&country=${country}`);
+            if (!res.ok) throw new Error('holdings fetch failed');
+            const data = await res.json();
+            if (data.debug_error) console.warn(`[holdings:${ticker}]`, data.debug_error);
+            setEtpHoldings((prev) => ({ ...prev, [ticker]: data }));
+        } catch (err) {
+            console.warn('holdings fetch failed', err);
+            etpHoldingsFetchedRef.current.delete(ticker);
+            setEtpHoldings((prev) => ({ ...prev, [ticker]: { holdings: [], error: err.message } }));
+        } finally {
+            setLoadingHoldings(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (!selected || selected.quoteType !== 'ETF') return;
+        fetchHoldings(selected);
+    }, [selected, fetchHoldings]);
+
     const handleSearch = useCallback((stock) => {
         setWatchlist((prev) => {
             if (prev.find((s) => s.ticker === stock.ticker)) return prev;
@@ -2161,7 +2385,12 @@ function DashboardApp() {
                             onRemove={handleRemove}
                         />
                         {selected ? (
-                            <StockDetailView stock={selected} exchangeRate={exchangeRate} />
+                            <StockDetailView
+                                stock={selected}
+                                exchangeRate={exchangeRate}
+                                holdingsData={etpHoldings[selected.ticker]}
+                                loadingHoldings={loadingHoldings}
+                            />
                         ) : (
                             <div className="flex-1">
                                 <EmptyState onPickTicker={handleFetchLive} />

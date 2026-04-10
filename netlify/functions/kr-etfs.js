@@ -50,6 +50,7 @@ const parseCsv = (text) => {
         // ETF 코드는 숫자+알파벳 6자리 (예: 0120J0, 069500)
         if (!code || !/^[A-Z0-9]{6}$/i.test(code)) continue;
         result.push({
+            stdCode: (fields[0] || '').trim(), // 12자리 표준코드 (KRX API 조회용)
             code: code.toUpperCase(),
             name: (fields[2] || '').trim(),
             shortName: (fields[3] || '').trim(),

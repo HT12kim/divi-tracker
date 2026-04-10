@@ -15,6 +15,9 @@
 [functions."kr-etfs"]
   included_files = ["data_1131_*.csv"]
 
+[functions."holdings"]
+  included_files = ["data_1131_*.csv"]
+
 [[headers]]
   for = "/"
   [headers.values]
