@@ -18,6 +18,7 @@ import {
     Clock,
     BookmarkPlus,
     AlertCircle,
+    Factory,
 } from 'lucide-react';
 import {
     LineChart,
@@ -1708,14 +1709,164 @@ function EtpHoldingsContainer({ stock, holdingsData, loading }) {
 }
 
 // ─────────────────────────────────────────────
+// 13-B. CapexContainer (설비투자)
+// ─────────────────────────────────────────────
+function CapexContainer({ stock, capexData, loading }) {
+    const { dark } = useTheme();
+    if (!stock || stock.quoteType !== 'EQUITY') return null;
+
+    const annual = capexData?.annual || [];
+    const error = capexData?.error;
+    const source = capexData?.source || '';
+    const currency = capexData?.currency || (stock.country === 'KR' ? 'KRW' : 'USD');
+
+    const isKR = currency === 'KRW';
+    const formatAmount = (val) => {
+        if (val == null) return '-';
+        if (isKR) {
+            const abs = Math.abs(val);
+            if (abs >= 1e12) return (val / 1e12).toFixed(2) + '조';
+            if (abs >= 1e8) return Math.round(val / 1e8).toLocaleString() + '억';
+            return val.toLocaleString('ko-KR');
+        }
+        const abs = Math.abs(val);
+        if (abs >= 1e9) return '$' + (val / 1e9).toFixed(2) + 'B';
+        if (abs >= 1e6) return '$' + (val / 1e6).toFixed(1) + 'M';
+        return '$' + val.toLocaleString('en-US');
+    };
+
+    // YoY 변화율 계산
+    const chartData = annual.map((d, i) => {
+        const prev = i > 0 ? annual[i - 1].amount : null;
+        const yoy = prev ? ((d.amount - prev) / prev) * 100 : null;
+        return { ...d, yoy };
+    });
+
+    const BAR_COLORS = ['#f97316', '#fb923c', '#fdba74', '#fed7aa', '#ffedd5', '#fff7ed'];
+
+    return (
+        <div className="rounded-2xl border border-slate-200/80 dark:border-slate-700/60 bg-white/80 dark:bg-slate-800/60 backdrop-blur-lg shadow p-4 sm:p-5">
+            <div className="flex items-center gap-2 mb-3">
+                <Factory className="w-5 h-5 text-orange-500" />
+                <h3 className="font-semibold text-slate-800 dark:text-slate-100 text-sm sm:text-base">
+                    설비투자 (CAPEX)
+                </h3>
+                {source && <span className="ml-auto text-[10px] text-slate-400 dark:text-slate-500">{source}</span>}
+            </div>
+
+            {loading ? (
+                <div className="space-y-2">
+                    {[1, 2, 3].map((i) => (
+                        <div key={i} className="h-6 rounded bg-slate-200 dark:bg-slate-700 animate-pulse" />
+                    ))}
+                </div>
+            ) : error && annual.length === 0 ? (
+                <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 text-xs">
+                    <AlertCircle className="w-4 h-4" />
+                    <span>CAPEX 데이터를 불러올 수 없습니다.</span>
+                </div>
+            ) : annual.length === 0 ? (
+                <p className="text-xs text-slate-400 dark:text-slate-500">데이터 없음</p>
+            ) : (
+                <>
+                    {/* Bar Chart */}
+                    <div className="w-full h-48 sm:h-56">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={chartData} margin={{ top: 10, right: 5, left: 5, bottom: 0 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke={dark ? '#334155' : '#e2e8f0'} />
+                                <XAxis dataKey="year" tick={{ fontSize: 11, fill: dark ? '#94a3b8' : '#64748b' }} />
+                                <YAxis
+                                    tick={{ fontSize: 10, fill: dark ? '#94a3b8' : '#64748b' }}
+                                    tickFormatter={(v) => formatAmount(v)}
+                                    width={60}
+                                />
+                                <Tooltip
+                                    contentStyle={{
+                                        backgroundColor: dark ? '#1e293b' : '#ffffff',
+                                        border: `1px solid ${dark ? '#334155' : '#e2e8f0'}`,
+                                        borderRadius: '8px',
+                                        fontSize: '12px',
+                                        color: dark ? '#e2e8f0' : '#1e293b',
+                                    }}
+                                    formatter={(value, name) => {
+                                        if (name === 'amount') return [formatAmount(value), 'CAPEX'];
+                                        return [value, name];
+                                    }}
+                                    labelFormatter={(label) => `FY ${label}`}
+                                />
+                                <Bar dataKey="amount" radius={[4, 4, 0, 0]}>
+                                    {chartData.map((_, i) => (
+                                        <Cell key={i} fill={BAR_COLORS[i % BAR_COLORS.length]} />
+                                    ))}
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+
+                    {/* Table */}
+                    <div className="mt-3 overflow-x-auto">
+                        <table className="w-full text-xs">
+                            <thead>
+                                <tr className="border-b border-slate-200 dark:border-slate-700">
+                                    <th className="text-left py-1.5 px-2 text-slate-500 dark:text-slate-400 font-medium">
+                                        연도
+                                    </th>
+                                    <th className="text-right py-1.5 px-2 text-slate-500 dark:text-slate-400 font-medium">
+                                        CAPEX
+                                    </th>
+                                    <th className="text-right py-1.5 px-2 text-slate-500 dark:text-slate-400 font-medium">
+                                        YoY
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {chartData.map((d) => (
+                                    <tr key={d.year} className="border-b border-slate-100 dark:border-slate-700/50">
+                                        <td className="py-1.5 px-2 text-slate-700 dark:text-slate-300">FY {d.year}</td>
+                                        <td className="py-1.5 px-2 text-right font-mono text-slate-800 dark:text-slate-200">
+                                            {formatAmount(d.amount)}
+                                        </td>
+                                        <td
+                                            className={`py-1.5 px-2 text-right font-mono ${
+                                                d.yoy == null
+                                                    ? 'text-slate-400 dark:text-slate-500'
+                                                    : d.yoy > 0
+                                                      ? 'text-emerald-600 dark:text-emerald-400'
+                                                      : d.yoy < 0
+                                                        ? 'text-red-500 dark:text-red-400'
+                                                        : 'text-slate-500 dark:text-slate-400'
+                                            }`}
+                                        >
+                                            {d.yoy == null ? '-' : `${d.yoy > 0 ? '+' : ''}${d.yoy.toFixed(1)}%`}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </>
+            )}
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────
 // 13. StockDetailView
 // ─────────────────────────────────────────────
-function StockDetailView({ stock, exchangeRate = DEFAULT_EXCHANGE_RATE, holdingsData, loadingHoldings }) {
+function StockDetailView({
+    stock,
+    exchangeRate = DEFAULT_EXCHANGE_RATE,
+    holdingsData,
+    loadingHoldings,
+    capexData,
+    loadingCapex,
+}) {
     return (
         <div className="flex-1 w-full flex flex-col gap-4 min-w-0">
             <StockInfoHeader stock={stock} />
             <DpsBarChart stock={stock} />
             <DividendTimeline stock={stock} />
+            <CapexContainer stock={stock} capexData={capexData} loading={loadingCapex} />
             <EtpHoldingsContainer stock={stock} holdingsData={holdingsData} loading={loadingHoldings} />
             <DividendCalculator stock={stock} exchangeRate={exchangeRate} />
         </div>
@@ -1774,6 +1925,9 @@ function DashboardApp() {
     const [etpHoldings, setEtpHoldings] = useState({});
     const [loadingHoldings, setLoadingHoldings] = useState(false);
     const etpHoldingsFetchedRef = useRef(new Set());
+    const [capexData, setCapexData] = useState({});
+    const [loadingCapex, setLoadingCapex] = useState(false);
+    const capexFetchedRef = useRef(new Set());
 
     // 한국 종목·ETF 목록 (fetchLiveStock + SearchBar 공유)
     const [krStocks, setKrStocks] = useState([]);
@@ -2310,6 +2464,31 @@ function DashboardApp() {
         fetchHoldings(selected);
     }, [selected, fetchHoldings]);
 
+    const fetchCapex = useCallback(async (stock) => {
+        if (!stock || stock.quoteType !== 'EQUITY') return;
+        const ticker = stock.ticker;
+        if (capexFetchedRef.current.has(ticker)) return;
+        capexFetchedRef.current.add(ticker);
+        setLoadingCapex(true);
+        try {
+            const country = stock.country || 'US';
+            const res = await fetch(`/api/capex?symbol=${encodeURIComponent(ticker)}&country=${country}`);
+            const data = await res.json();
+            setCapexData((prev) => ({ ...prev, [ticker]: data }));
+        } catch (err) {
+            console.warn('capex fetch failed', err);
+            capexFetchedRef.current.delete(ticker);
+            setCapexData((prev) => ({ ...prev, [ticker]: { annual: [], error: err.message } }));
+        } finally {
+            setLoadingCapex(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (!selected || selected.quoteType !== 'EQUITY') return;
+        fetchCapex(selected);
+    }, [selected, fetchCapex]);
+
     const handleSearch = useCallback((stock) => {
         setWatchlist((prev) => {
             if (prev.find((s) => s.ticker === stock.ticker)) return prev;
@@ -2401,6 +2580,8 @@ function DashboardApp() {
                                 exchangeRate={exchangeRate}
                                 holdingsData={etpHoldings[selected.ticker]}
                                 loadingHoldings={loadingHoldings}
+                                capexData={capexData[selected.ticker]}
+                                loadingCapex={loadingCapex}
                             />
                         ) : (
                             <div className="flex-1">
