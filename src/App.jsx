@@ -1544,6 +1544,7 @@ function EtpHoldingsContainer({ stock, holdingsData, loading }) {
     const axisColor = dark ? '#94a3b8' : '#64748b';
     const tooltipBg = dark ? '#0f172a' : '#ffffff';
     const tooltipBorder = dark ? '#1f2937' : '#e2e8f0';
+    const tooltipText = dark ? '#e2e8f0' : '#0f172a';
     const barColors = [
         '#6366f1',
         '#818cf8',
@@ -1633,6 +1634,7 @@ function EtpHoldingsContainer({ stock, holdingsData, loading }) {
                                             border: '1px solid ' + tooltipBorder,
                                             borderRadius: 8,
                                             fontSize: 12,
+                                            color: tooltipText,
                                         }}
                                     />
                                     <Bar dataKey="weight" radius={[0, 4, 4, 0]} maxBarSize={18}>
@@ -1668,7 +1670,7 @@ function EtpHoldingsContainer({ stock, holdingsData, loading }) {
                                             key={h.rank}
                                             className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
                                         >
-                                            <td className="px-3 py-2 text-slate-400 font-mono">{h.rank}</td>
+                                            <td className="px-3 py-2 text-slate-400 dark:text-slate-500 font-mono">{h.rank}</td>
                                             <td className="px-3 py-2 font-medium text-slate-800 dark:text-slate-200 max-w-[140px] truncate">
                                                 {h.name}
                                             </td>
