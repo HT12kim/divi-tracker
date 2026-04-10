@@ -2608,8 +2608,18 @@ function DashboardApp() {
                 </div>
             </main>
 
-            {/* ── 카카오 애드핏 배너 ── */}
-            <div className="flex justify-center py-3">
+            <PopularStocksGuide />
+
+            <FaqSection />
+
+            <footer className="border-t border-slate-200 dark:border-slate-800 py-3 px-6 mb-[58px]">
+                <p className="text-center text-xs text-slate-400 dark:text-slate-600">
+                    Dividend Master · 환율 ₩{rateDisplay}/USD{rateSuffix} · 기준일 {TODAY.toISOString().slice(0, 10)}
+                </p>
+            </footer>
+
+            {/* ── 카카오 애드핏 배너 (화면 하단 고정) ── */}
+            <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-t border-slate-200/60 dark:border-slate-800/60 py-1">
                 <ins
                     className="kakao_ad_area"
                     style={{ display: 'none' }}
@@ -2618,16 +2628,6 @@ function DashboardApp() {
                     data-ad-height="50"
                 />
             </div>
-
-            <PopularStocksGuide />
-
-            <FaqSection />
-
-            <footer className="border-t border-slate-200 dark:border-slate-800 py-3 px-6">
-                <p className="text-center text-xs text-slate-400 dark:text-slate-600">
-                    Dividend Master · 환율 ₩{rateDisplay}/USD{rateSuffix} · 기준일 {TODAY.toISOString().slice(0, 10)}
-                </p>
-            </footer>
         </div>
     );
 }
