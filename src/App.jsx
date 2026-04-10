@@ -1714,12 +1714,10 @@ function StockDetailView({ stock, exchangeRate = DEFAULT_EXCHANGE_RATE, holdings
     return (
         <div className="flex-1 w-full flex flex-col gap-4 min-w-0">
             <StockInfoHeader stock={stock} />
-            <EtpHoldingsContainer stock={stock} holdingsData={holdingsData} loading={loadingHoldings} />
+            <DpsBarChart stock={stock} />
             <DividendTimeline stock={stock} />
-            <div className="flex flex-col gap-4">
-                <DpsBarChart stock={stock} />
-                <DividendCalculator stock={stock} exchangeRate={exchangeRate} />
-            </div>
+            <EtpHoldingsContainer stock={stock} holdingsData={holdingsData} loading={loadingHoldings} />
+            <DividendCalculator stock={stock} exchangeRate={exchangeRate} />
         </div>
     );
 }
