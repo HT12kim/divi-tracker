@@ -243,13 +243,13 @@ const fetchDartCapex = async (stockCode) => {
         };
     }
 
-    // 최근 2개 사업보고서(연간)서 당기+전기+전전기 → 최대 5-6년치
+    // 최근 2개 사업보고서를 병렬로 조회: 각 보고서에 당기+전기+전전기 포함 → 최대 5-6년치
     const currentYear = new Date().getFullYear();
-    const yearsToFetch = [currentYear - 1, currentYear - 2]; // 가장 최근 사업보고서
-    const byYear = {}; // { year: amount }
+    const yearsToFetch = [currentYear - 1, currentYear - 2];
+    const byYear = {};
     const debugErrors = [];
 
-    for (const yr of yearsToFetch) {
+    const fetchOneYear = async (yr) => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 12000);
         try {
@@ -258,32 +258,37 @@ const fetchDartCapex = async (stockCode) => {
             clearTimeout(timeoutId);
             const json = await res.json();
             if (json.status !== '000') {
-                debugErrors.push(`DART ${yr}: ${json.status} ${json.message}`);
-                continue;
+                return { yr, error: `${json.status} ${json.message}`, capexItem: null };
             }
-
-            // CF 섹션에서 CAPEX 항목 찾기
             const cfItems = (json.list || []).filter((i) => i.sj_div === 'CF');
             let capexItem = null;
             for (const pattern of CAPEX_KR_PATTERNS) {
                 capexItem = cfItems.find((i) => pattern.test(i.account_nm));
                 if (capexItem) break;
             }
-
-            if (capexItem) {
-                const thstrm = parseKrAmount(capexItem.thstrm_amount);
-                const frmtrm = parseKrAmount(capexItem.frmtrm_amount);
-                const bfefrmtrm = parseKrAmount(capexItem.bfefrmtrm_amount);
-                if (thstrm != null) byYear[yr] = thstrm;
-                if (frmtrm != null && !byYear[yr - 1]) byYear[yr - 1] = frmtrm;
-                if (bfefrmtrm != null && !byYear[yr - 2]) byYear[yr - 2] = bfefrmtrm;
-            } else {
-                debugErrors.push(`DART ${yr}: CAPEX account not found in CF items (${cfItems.length} items)`);
-            }
+            return { yr, error: capexItem ? null : `CAPEX not found in CF (${cfItems.length} items)`, capexItem };
         } catch (e) {
             clearTimeout(timeoutId);
-            debugErrors.push(`DART ${yr} exception: ${e.message}`);
+            return { yr, error: e.message, capexItem: null };
         }
+    };
+
+    // 병렬 실행: 순차 2회 → 동시 1회 대기
+    const results = await Promise.allSettled(yearsToFetch.map(fetchOneYear));
+
+    for (const result of results) {
+        if (result.status === 'rejected') {
+            debugErrors.push(`DART promise rejected: ${result.reason}`);
+            continue;
+        }
+        const { yr, error, capexItem } = result.value;
+        if (error) { debugErrors.push(`DART ${yr}: ${error}`); continue; }
+        const thstrm = parseKrAmount(capexItem.thstrm_amount);
+        const frmtrm = parseKrAmount(capexItem.frmtrm_amount);
+        const bfefrmtrm = parseKrAmount(capexItem.bfefrmtrm_amount);
+        if (thstrm != null && !byYear[yr]) byYear[yr] = thstrm;
+        if (frmtrm != null && !byYear[yr - 1]) byYear[yr - 1] = frmtrm;
+        if (bfefrmtrm != null && !byYear[yr - 2]) byYear[yr - 2] = bfefrmtrm;
     }
 
     if (Object.keys(byYear).length === 0) {

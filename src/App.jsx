@@ -1743,14 +1743,13 @@ function CapexContainer({ stock, capexData, loading }) {
     });
 
     const BAR_COLORS = ['#f97316', '#fb923c', '#fdba74', '#fed7aa', '#ffedd5', '#fff7ed'];
+    const gridColor = dark ? '#1e293b' : '#f1f5f9';
 
     return (
-        <div className="rounded-2xl border border-slate-200/80 dark:border-slate-700/60 bg-white/80 dark:bg-slate-800/60 backdrop-blur-lg shadow p-4 sm:p-5">
+        <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 p-4 sm:p-5 shadow-xl">
             <div className="flex items-center gap-2 mb-3">
-                <Factory className="w-5 h-5 text-orange-500" />
-                <h3 className="font-semibold text-slate-800 dark:text-slate-100 text-sm sm:text-base">
-                    설비투자 (CAPEX)
-                </h3>
+                <Factory className="w-4 h-4 text-orange-500" />
+                <h2 className="font-semibold text-slate-800 dark:text-slate-100 text-sm">설비투자 (CAPEX)</h2>
                 {source && <span className="ml-auto text-[10px] text-slate-400 dark:text-slate-500">{source}</span>}
             </div>
 
@@ -1770,38 +1769,43 @@ function CapexContainer({ stock, capexData, loading }) {
             ) : (
                 <>
                     {/* Bar Chart */}
-                    <div className="w-full h-48 sm:h-56">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={chartData} margin={{ top: 10, right: 5, left: 5, bottom: 0 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke={dark ? '#334155' : '#e2e8f0'} />
-                                <XAxis dataKey="year" tick={{ fontSize: 11, fill: dark ? '#94a3b8' : '#64748b' }} />
-                                <YAxis
-                                    tick={{ fontSize: 10, fill: dark ? '#94a3b8' : '#64748b' }}
-                                    tickFormatter={(v) => formatAmount(v)}
-                                    width={60}
-                                />
-                                <Tooltip
-                                    contentStyle={{
-                                        backgroundColor: dark ? '#1e293b' : '#ffffff',
-                                        border: `1px solid ${dark ? '#334155' : '#e2e8f0'}`,
-                                        borderRadius: '8px',
-                                        fontSize: '12px',
-                                        color: dark ? '#e2e8f0' : '#1e293b',
-                                    }}
-                                    formatter={(value, name) => {
-                                        if (name === 'amount') return [formatAmount(value), 'CAPEX'];
-                                        return [value, name];
-                                    }}
-                                    labelFormatter={(label) => `FY ${label}`}
-                                />
-                                <Bar dataKey="amount" radius={[4, 4, 0, 0]}>
-                                    {chartData.map((_, i) => (
-                                        <Cell key={i} fill={BAR_COLORS[i % BAR_COLORS.length]} />
-                                    ))}
-                                </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
+                    <ResponsiveContainer width="100%" height={180}>
+                        <BarChart data={chartData} margin={{ top: 6, right: 12, left: 0, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
+                            <XAxis
+                                dataKey="year"
+                                tick={{ fontSize: 11, fill: dark ? '#94a3b8' : '#64748b' }}
+                                axisLine={false}
+                                tickLine={false}
+                            />
+                            <YAxis
+                                tick={{ fontSize: 10, fill: dark ? '#94a3b8' : '#64748b' }}
+                                tickFormatter={(v) => formatAmount(v)}
+                                width={60}
+                                axisLine={false}
+                                tickLine={false}
+                            />
+                            <Tooltip
+                                contentStyle={{
+                                    backgroundColor: dark ? '#1e293b' : '#ffffff',
+                                    border: `1px solid ${dark ? '#334155' : '#e2e8f0'}`,
+                                    borderRadius: '8px',
+                                    fontSize: '12px',
+                                    color: dark ? '#e2e8f0' : '#1e293b',
+                                }}
+                                formatter={(value, name) => {
+                                    if (name === 'amount') return [formatAmount(value), 'CAPEX'];
+                                    return [value, name];
+                                }}
+                                labelFormatter={(label) => `FY ${label}`}
+                            />
+                            <Bar dataKey="amount" radius={[4, 4, 0, 0]} maxBarSize={32}>
+                                {chartData.map((_, i) => (
+                                    <Cell key={i} fill={BAR_COLORS[i % BAR_COLORS.length]} />
+                                ))}
+                            </Bar>
+                        </BarChart>
+                    </ResponsiveContainer>
 
                     {/* Table */}
                     <div className="mt-3 overflow-x-auto">
@@ -2207,28 +2211,44 @@ function DashboardApp() {
             const baseSymbol = normalized;
             const taxRate = country === 'KR' ? 0.154 : 0.15;
 
-            // KR 종목인데 한글명이 아직 없으면 6자리 코드로 검색해서 한글명 취득
-            if (country === 'KR' && !krShortName && !krLongName) {
-                try {
-                    const sixDigit = resolvedSymbol.replace(/\.(KS|KQ)$/i, '');
-                    const krRes = await fetch(`/api/search?q=${encodeURIComponent(sixDigit)}&lang=ko-KR&region=KR`);
-                    if (krRes.ok) {
-                        const krData = await krRes.json();
-                        const krMatch = (krData.quotes || []).find(
-                            (q) =>
-                                normalizeSymbol(q.symbol) === resolvedSymbol ||
-                                q.symbol?.replace(/^KRX:/i, '') + '.KS' === resolvedSymbol,
-                        );
-                        if (krMatch) {
-                            krShortName = krMatch.shortname || null;
-                            krLongName = krMatch.longname || null;
-                        }
+            // KR: ③ 한글명 fallback fetch + ④ KSD 배당을 병렬로 동시 실행
+            let events = [];
+            if (country === 'KR') {
+                const needKrName = !krShortName && !krLongName;
+                const sixDigit = resolvedSymbol.replace(/\.(KS|KQ)$/i, '');
+
+                const [krNameResult, ksdResult] = await Promise.allSettled([
+                    // ③ 한글명 (필요한 경우에만)
+                    needKrName
+                        ? fetch(`/api/search?q=${encodeURIComponent(sixDigit)}&lang=ko-KR&region=KR`)
+                              .then((r) => (r.ok ? r.json() : null))
+                              .catch(() => null)
+                        : Promise.resolve(null),
+                    // ④ KSD 배당
+                    fetchKsdDividends(resolvedSymbol).catch((err) => {
+                        console.warn('KSD dividend fetch failed', err);
+                        return [];
+                    }),
+                ]);
+
+                // ③ 한글명 결과 처리
+                if (needKrName && krNameResult.status === 'fulfilled' && krNameResult.value) {
+                    const krMatch = (krNameResult.value.quotes || []).find(
+                        (q) =>
+                            normalizeSymbol(q.symbol) === resolvedSymbol ||
+                            q.symbol?.replace(/^KRX:/i, '') + '.KS' === resolvedSymbol,
+                    );
+                    if (krMatch) {
+                        krShortName = krMatch.shortname || null;
+                        krLongName = krMatch.longname || null;
                     }
-                } catch (_) {}
+                }
+
+                // ④ KSD 배당 결과 처리
+                if (ksdResult.status === 'fulfilled') events = ksdResult.value || [];
             }
 
             const aliases = [
-                displayName,
                 fullName,
                 quote.shortName,
                 quote.longName,
@@ -2245,15 +2265,6 @@ function DashboardApp() {
                 .filter((v) => v.length > 0);
             const quoteType = quote.quoteType || '';
             const sector = quote.market || quoteType || 'N/A';
-
-            let events = [];
-            if (country === 'KR') {
-                try {
-                    events = await fetchKsdDividends(resolvedSymbol);
-                } catch (err) {
-                    console.warn('KSD dividend fetch failed', err);
-                }
-            }
 
             if (events.length === 0) {
                 try {
@@ -2388,9 +2399,9 @@ function DashboardApp() {
             if (!symbol) return;
             setLoadingSymbol(symbol);
             try {
-                const stock = await fetchLiveStock(symbol);
+                // fetchLiveStock과 fetchExchangeRate를 병렬 실행
+                const [stock] = await Promise.all([fetchLiveStock(symbol), fetchExchangeRate()]);
                 if (!stock) return;
-                await fetchExchangeRate();
                 setLiveCache((prev) => ({ ...prev, [stock.ticker]: stock }));
                 setWatchlist((prev) => {
                     const exists = prev.find((s) => s.ticker === stock.ticker);
