@@ -32,16 +32,55 @@ const fetchFnGuideHoldings = async (shortCode) => {
         }
 
         const tradingDate = (gridData[0].TRD_DT || '').replace(/-/g, '');
-        const holdings = gridData.slice(0, 25).map((row, idx) => ({
-            rank: idx + 1,
-            ticker: '',
-            name: (row.STK_NM_KOR || '').trim(),
-            weight: parseFloat((row.ETF_WEIGHT || 0).toFixed(2)),
-            shares: row.AGMT_STK_CNT ? Math.round(row.AGMT_STK_CNT) : null,
-            value: null,
-        }));
 
-        return { data: { holdings, source: 'FnGuide', tradingDate }, debugError: null };
+        // ETF_WEIGHT가 전부 null인 경우(해외 ETF 등) AGMT_STK_CNT 비율로 상대 가중치 계산
+        const hasWeight = gridData.some((r) => r.ETF_WEIGHT != null);
+
+        // 현금/채권/TRS 등 비주식 항목 키워드
+        const CASH_KEYWORDS = ['현금', '채권', 'TRS', '국채', '단기자금', '통안증권', 'MMF', '예금'];
+        const isCashEntry = (name) => CASH_KEYWORDS.some((k) => name.includes(k));
+
+        let workingData = gridData;
+        let weightApprox = false;
+
+        if (!hasWeight) {
+            // 주식 항목만 추려서 수량 기반 상대 가중치 계산
+            const equityOnly = gridData.filter((r) => !isCashEntry(r.STK_NM_KOR || ''));
+            workingData = equityOnly.length > 0 ? equityOnly : gridData;
+            weightApprox = true;
+        }
+
+        const totalShares = weightApprox
+            ? workingData.reduce((s, r) => s + (r.AGMT_STK_CNT || 0), 0)
+            : 0;
+
+        // 비중 기준 내림차순 정렬 후 상위 25개
+        const sorted = [...workingData].sort((a, b) => {
+            const wa = hasWeight ? (a.ETF_WEIGHT ?? 0) : (a.AGMT_STK_CNT || 0);
+            const wb = hasWeight ? (b.ETF_WEIGHT ?? 0) : (b.AGMT_STK_CNT || 0);
+            return wb - wa;
+        });
+
+        const holdings = sorted.slice(0, 25).map((row, idx) => {
+            let weight;
+            if (hasWeight) {
+                weight = parseFloat((row.ETF_WEIGHT ?? 0).toFixed(2));
+            } else {
+                weight = totalShares > 0
+                    ? parseFloat(((row.AGMT_STK_CNT || 0) / totalShares * 100).toFixed(2))
+                    : 0;
+            }
+            return {
+                rank: idx + 1,
+                ticker: '',
+                name: (row.STK_NM_KOR || '').trim(),
+                weight,
+                shares: row.AGMT_STK_CNT ? Math.round(row.AGMT_STK_CNT) : null,
+                value: null,
+            };
+        });
+
+        return { data: { holdings, source: 'FnGuide', tradingDate, weightApprox }, debugError: null };
     } catch (e) {
         clearTimeout(timeoutId);
         return { data: null, debugError: `FnGuide exception: ${e.message}` };

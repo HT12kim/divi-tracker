@@ -1535,6 +1535,7 @@ function EtpHoldingsContainer({ stock, holdingsData, loading }) {
     const hasError = holdingsData?.error && holdings.length === 0;
     const debugError = holdingsData?.debug_error || null;
     const isKR = stock.country === 'KR';
+    const weightApprox = holdingsData?.weightApprox === true;
 
     const chartData = holdings.slice(0, 10).map((h) => ({
         name: h.name.length > 12 ? h.name.slice(0, 11) + '…' : h.name,
@@ -1565,6 +1566,11 @@ function EtpHoldingsContainer({ stock, holdingsData, loading }) {
                 <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
                     구성종목{holdings.length > 0 ? ` (상위 ${holdings.length}개)` : ''}
                 </h2>
+                {weightApprox && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400">
+                        비중 근사값
+                    </span>
+                )}
                 {source && (
                     <span className="ml-auto text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
                         {source}
@@ -1628,7 +1634,7 @@ function EtpHoldingsContainer({ stock, holdingsData, loading }) {
                                         tickLine={false}
                                     />
                                     <Tooltip
-                                        formatter={(v) => [v.toFixed(2) + '%', '비중']}
+                                        formatter={(v) => [v.toFixed(2) + '%', weightApprox ? '비중(근사)' : '비중']}
                                         contentStyle={{
                                             background: tooltipBg,
                                             border: '1px solid ' + tooltipBorder,
@@ -1652,7 +1658,7 @@ function EtpHoldingsContainer({ stock, holdingsData, loading }) {
                             <table className="w-full text-xs">
                                 <thead className="sticky top-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur">
                                     <tr>
-                                        {['#', '종목명', '티커', '비중']
+                                        {['#', '종목명', '티커', weightApprox ? '비중(근사)' : '비중']
                                             .concat(isKR ? ['보유주수', '평가금액(억)'] : [])
                                             .map((h) => (
                                                 <th
@@ -1670,7 +1676,9 @@ function EtpHoldingsContainer({ stock, holdingsData, loading }) {
                                             key={h.rank}
                                             className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
                                         >
-                                            <td className="px-3 py-2 text-slate-400 dark:text-slate-500 font-mono">{h.rank}</td>
+                                            <td className="px-3 py-2 text-slate-400 dark:text-slate-500 font-mono">
+                                                {h.rank}
+                                            </td>
                                             <td className="px-3 py-2 font-medium text-slate-800 dark:text-slate-200 max-w-[140px] truncate">
                                                 {h.name}
                                             </td>
