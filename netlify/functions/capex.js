@@ -22,10 +22,10 @@ const loadTickerToCik = async () => {
     return map;
 };
 
+// 우선순위 순으로 시도. CapitalExpendituresIncurredButNotYetPaid는 미지급 발생액이므로 제외.
 const CAPEX_TAGS = [
-    'PaymentsToAcquirePropertyPlantAndEquipment',
-    'CapitalExpendituresIncurredButNotYetPaid',
-    'PaymentsToAcquireIntangibleAssets',
+    'PaymentsToAcquirePropertyPlantAndEquipment', // 가장 일반적 (AAPL, MSFT 등)
+    'PaymentsToAcquireProductiveAssets', // NVDA 등 일부 기업
 ];
 
 const fetchSecCapex = async (ticker) => {
@@ -46,25 +46,49 @@ const fetchSecCapex = async (ticker) => {
         const facts = await res.json();
         const usgaap = facts.facts?.['us-gaap'] || {};
 
-        // 가용한 CAPEX 태그 순서대로 시도
+        // 모든 태그에서 데이터를 수집하고 가장 최신 연도를 가진 태그를 선택
+        // (첫 번째 태그에 구식 데이터만 있을 경우 더 최신 태그를 사용하기 위함)
         let tagUsed = '';
         let annual = [];
 
+        const tagCandidates = [];
         for (const tag of CAPEX_TAGS) {
             const units = usgaap[tag]?.units?.USD || [];
-            const fyEntries = units.filter((u) => u.form === '10-K' && u.fp === 'FY');
-            if (fyEntries.length > 0) {
-                // 동일 FY에 여러 값 → 최신 filed 기준 deduplicate
-                const byFy = {};
-                for (const u of fyEntries) {
-                    if (!byFy[u.fy] || u.filed > byFy[u.fy].filed) byFy[u.fy] = u;
-                }
-                annual = Object.entries(byFy)
-                    .map(([fy, u]) => ({ year: Number(fy), amount: u.val, filed: u.filed }))
-                    .sort((a, b) => a.year - b.year);
-                tagUsed = tag;
-                break;
+            // 10-K/A(수정 보고서)도 포함, fp=FY로 연간 항목만
+            const fyEntries = units.filter((u) => (u.form === '10-K' || u.form === '10-K/A') && u.fp === 'FY' && u.end);
+            if (fyEntries.length === 0) continue;
+
+            // end 날짜로 dedup: 하나의 10-K는 3년치 비교 데이터를 포함하므로
+            // end 날짜 기준으로 그룹화하고 가장 최근 filed를 사용
+            const byEnd = {};
+            for (const u of fyEntries) {
+                if (!byEnd[u.end] || u.filed > byEnd[u.end].filed) byEnd[u.end] = u;
             }
+            let rows = Object.values(byEnd)
+                .map((u) => ({
+                    year: Number(u.end.substring(0, 4)), // end 날짜의 연도 사용
+                    amount: u.val,
+                    filed: u.filed,
+                }))
+                .sort((a, b) => a.year - b.year);
+
+            // 동일 연도가 여럿이면 (회계연도가 1월 마감 등) 가장 최신 filed 유지
+            const byYear = {};
+            for (const u of rows) {
+                if (!byYear[u.year] || u.filed > byYear[u.year].filed) byYear[u.year] = u;
+            }
+            rows = Object.values(byYear).sort((a, b) => a.year - b.year);
+
+            if (rows.length > 0) {
+                tagCandidates.push({ tag, rows, maxYear: Math.max(...rows.map((r) => r.year)) });
+            }
+        }
+
+        if (tagCandidates.length > 0) {
+            // 가장 최신 연도를 가진 태그 선택, 동점이면 데이터 수 많은 것
+            tagCandidates.sort((a, b) => b.maxYear - a.maxYear || b.rows.length - a.rows.length);
+            tagUsed = tagCandidates[0].tag;
+            annual = tagCandidates[0].rows;
         }
 
         if (!annual.length) {
