@@ -1642,6 +1642,8 @@ function EtpHoldingsContainer({ stock, holdingsData, loading }) {
                                             fontSize: 12,
                                             color: tooltipText,
                                         }}
+                                        labelStyle={{ color: tooltipText }}
+                                        itemStyle={{ color: tooltipText }}
                                     />
                                     <Bar dataKey="weight" radius={[0, 4, 4, 0]} maxBarSize={18}>
                                         {chartData.map((_, idx) => (
