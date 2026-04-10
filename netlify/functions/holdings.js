@@ -1,6 +1,81 @@
+import fs from 'fs';
+import path from 'path';
 import YahooFinance from 'yahoo-finance2';
 
 const yahooFinance = new YahooFinance();
+
+// ── KR 종목명 → 단축코드 매핑 (vite.config.csv 기반) ─────────────────────────
+let nameToCodeMap = null;
+
+const buildNameToCodeMap = () => {
+    if (nameToCodeMap) return nameToCodeMap;
+    const candidates = [
+        path.join(process.cwd(), 'vite.config.csv'),
+        path.join(process.cwd(), 'netlify/functions/vite.config.csv'),
+        path.join(process.cwd(), '.netlify/functions/vite.config.csv'),
+    ];
+    let csvPath = null;
+    for (const p of candidates) {
+        try {
+            if (fs.existsSync(p)) {
+                csvPath = p;
+                break;
+            }
+        } catch (_) {}
+    }
+    if (!csvPath) {
+        nameToCodeMap = {};
+        return nameToCodeMap;
+    }
+    const buf = fs.readFileSync(csvPath);
+    let text;
+    try {
+        text = new TextDecoder('euc-kr').decode(buf);
+    } catch (_) {
+        text = buf.toString('latin1');
+    }
+    const lines = text.split(/\r?\n/);
+    const map = {};
+    for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        // 간단 따옴표 파서
+        const fields = [];
+        let inQ = false,
+            cur = '';
+        for (let j = 0; j < line.length; j++) {
+            const c = line[j];
+            if (c === '"') {
+                inQ = !inQ;
+                continue;
+            }
+            if (c === ',' && !inQ) {
+                fields.push(cur);
+                cur = '';
+                continue;
+            }
+            cur += c;
+        }
+        fields.push(cur);
+        const code = (fields[1] || '').trim(); // 단축코드
+        const nameShort = (fields[3] || '').trim(); // 한글 종목약명
+        const nameFull = (fields[2] || '').trim(); // 한글 종목명
+        if (code && nameShort) map[nameShort] = code;
+        if (code && nameFull) map[nameFull] = code;
+    }
+    nameToCodeMap = map;
+    return nameToCodeMap;
+};
+
+const resolveTickerByName = (name) => {
+    const map = buildNameToCodeMap();
+    // 정확 매칭
+    if (map[name]) return map[name];
+    // 약명 제거 (주) 등 → 재시도
+    const cleaned = name.replace(/^\(주\)\s*/, '').trim();
+    if (map[cleaned]) return map[cleaned];
+    return '';
+};
 
 // ── KR: FnGuide (navercomp.wisereport.co.kr) ETF CU 구성종목 조회 ────────────
 const FNGUIDE_ETF_URL = 'https://navercomp.wisereport.co.kr/v2/ETF/index.aspx';
@@ -50,14 +125,12 @@ const fetchFnGuideHoldings = async (shortCode) => {
             weightApprox = true;
         }
 
-        const totalShares = weightApprox
-            ? workingData.reduce((s, r) => s + (r.AGMT_STK_CNT || 0), 0)
-            : 0;
+        const totalShares = weightApprox ? workingData.reduce((s, r) => s + (r.AGMT_STK_CNT || 0), 0) : 0;
 
         // 비중 기준 내림차순 정렬 후 상위 25개
         const sorted = [...workingData].sort((a, b) => {
-            const wa = hasWeight ? (a.ETF_WEIGHT ?? 0) : (a.AGMT_STK_CNT || 0);
-            const wb = hasWeight ? (b.ETF_WEIGHT ?? 0) : (b.AGMT_STK_CNT || 0);
+            const wa = hasWeight ? (a.ETF_WEIGHT ?? 0) : a.AGMT_STK_CNT || 0;
+            const wb = hasWeight ? (b.ETF_WEIGHT ?? 0) : b.AGMT_STK_CNT || 0;
             return wb - wa;
         });
 
@@ -66,13 +139,11 @@ const fetchFnGuideHoldings = async (shortCode) => {
             if (hasWeight) {
                 weight = parseFloat((row.ETF_WEIGHT ?? 0).toFixed(2));
             } else {
-                weight = totalShares > 0
-                    ? parseFloat(((row.AGMT_STK_CNT || 0) / totalShares * 100).toFixed(2))
-                    : 0;
+                weight = totalShares > 0 ? parseFloat((((row.AGMT_STK_CNT || 0) / totalShares) * 100).toFixed(2)) : 0;
             }
             return {
                 rank: idx + 1,
-                ticker: '',
+                ticker: resolveTickerByName((row.STK_NM_KOR || '').trim()),
                 name: (row.STK_NM_KOR || '').trim(),
                 weight,
                 shares: row.AGMT_STK_CNT ? Math.round(row.AGMT_STK_CNT) : null,

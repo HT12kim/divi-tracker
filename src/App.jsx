@@ -1659,7 +1659,7 @@ function EtpHoldingsContainer({ stock, holdingsData, loading }) {
                                 <thead className="sticky top-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur">
                                     <tr>
                                         {['#', '종목명', '티커', weightApprox ? '비중(근사)' : '비중']
-                                            .concat(isKR ? ['보유주수', '평가금액(억)'] : [])
+                                            .concat(isKR ? ['보유주수'] : [])
                                             .map((h) => (
                                                 <th
                                                     key={h}
@@ -1689,16 +1689,9 @@ function EtpHoldingsContainer({ stock, holdingsData, loading }) {
                                                 {h.weight.toFixed(2)}%
                                             </td>
                                             {isKR && (
-                                                <>
-                                                    <td className="px-3 py-2 text-right text-slate-500 dark:text-slate-400 font-mono whitespace-nowrap">
-                                                        {h.shares != null ? h.shares.toLocaleString() : '—'}
-                                                    </td>
-                                                    <td className="px-3 py-2 text-right text-slate-500 dark:text-slate-400 font-mono whitespace-nowrap">
-                                                        {h.value != null
-                                                            ? Math.round(h.value / 1e8).toLocaleString()
-                                                            : '—'}
-                                                    </td>
-                                                </>
+                                                <td className="px-3 py-2 text-right text-slate-500 dark:text-slate-400 font-mono whitespace-nowrap">
+                                                    {h.shares != null ? h.shares.toLocaleString() : '—'}
+                                                </td>
                                             )}
                                         </tr>
                                     ))}
