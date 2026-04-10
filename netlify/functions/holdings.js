@@ -1,158 +1,51 @@
-import fs from 'fs';
-import path from 'path';
-import yahooFinance from 'yahoo-finance2';
+import YahooFinance from 'yahoo-finance2';
 
-// ── KR: data_1131_*.csv 에서 6자리 단축코드 → 12자리 표준코드 매핑 ───────────
-const findCsv = () => {
-    const searchDirs = [
-        process.cwd(),
-        path.join(process.cwd(), 'netlify/functions'),
-        path.join(process.cwd(), '.netlify/functions'),
-    ];
-    for (const dir of searchDirs) {
-        try {
-            const files = fs
-                .readdirSync(dir)
-                .filter((f) => /^data_1131_.*\.csv$/.test(f))
-                .sort();
-            if (files.length > 0) return path.join(dir, files[files.length - 1]);
-        } catch (_) {}
-    }
-    return null;
-};
+const yahooFinance = new YahooFinance();
 
-let stdCodeMap = null; // { '069500': 'KR7069500007', ... }
+// ── KR: FnGuide (navercomp.wisereport.co.kr) ETF CU 구성종목 조회 ────────────
+const FNGUIDE_ETF_URL = 'https://navercomp.wisereport.co.kr/v2/ETF/index.aspx';
 
-// kr-etfs.js 와 동일한 따옴표 필드 파서 — 쉼표가 포함된 종목명 대응
-const parseCsvRow = (line) => {
-    const fields = [];
-    let inQ = false;
-    let cur = '';
-    for (let i = 0; i < line.length; i++) {
-        const c = line[i];
-        if (c === '"') {
-            inQ = !inQ;
-            continue;
-        }
-        if (c === ',' && !inQ) {
-            fields.push(cur);
-            cur = '';
-            continue;
-        }
-        cur += c;
-    }
-    fields.push(cur);
-    return fields;
-};
-
-const buildStdCodeMap = () => {
-    if (stdCodeMap) return stdCodeMap;
-    const csvPath = findCsv();
-    if (!csvPath) return {};
-    const buf = fs.readFileSync(csvPath);
-    let text;
+const fetchFnGuideHoldings = async (shortCode) => {
+    const url = `${FNGUIDE_ETF_URL}?cmp_cd=${shortCode}`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
     try {
-        text = new TextDecoder('euc-kr').decode(buf);
-    } catch (_) {
-        text = buf.toString('latin1');
-    }
-    const lines = text.split(/\r?\n/);
-    const map = {};
-    for (let li = 1; li < lines.length; li++) {
-        const line = lines[li].trim();
-        if (!line) continue;
-        const fields = parseCsvRow(line);
-        const stdCode = (fields[0] || '').trim();
-        const shortCode = (fields[1] || '').trim().toUpperCase();
-        if (shortCode && /^[A-Z0-9]{6}$/i.test(shortCode) && stdCode) {
-            map[shortCode] = stdCode;
-        }
-    }
-    stdCodeMap = map;
-    return map;
-};
-
-// ── KR: KRX 정보데이터시스템 ETF 구성종목 조회 ─────────────────────────────
-const KRX_URL = 'https://data.krx.co.kr/comm/bldAttendant/getJsonData.cmd';
-
-const toDateStr = (d) => {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}${m}${day}`;
-};
-
-// 영업일 후보: 오늘로부터 최대 7일 전까지 순서대로 시도
-const getRecentTradingDates = () => {
-    const dates = [];
-    const d = new Date();
-    for (let i = 0; i < 7; i++) {
-        const day = d.getDay(); // 0=일, 6=토
-        if (day !== 0 && day !== 6) dates.push(toDateStr(d));
-        d.setDate(d.getDate() - 1);
-    }
-    return dates;
-};
-
-const fetchKrxHoldings = async (shortCode) => {
-    const map = buildStdCodeMap();
-    const stdCode = map[shortCode.toUpperCase()];
-    if (!stdCode)
-        return {
-            data: null,
-            debugError: `stdCode not found for ${shortCode} (CSV map size: ${Object.keys(map).length})`,
-        };
-
-    const dates = getRecentTradingDates();
-    const errors = [];
-    for (const trdDd of dates) {
-        const body = new URLSearchParams({
-            bld: 'dbms/MDC/STAT/standard/MDCSTAT04301',
-            isuCd: stdCode,
-            trdDd,
+        const res = await fetch(url, {
+            headers: { 'User-Agent': 'Mozilla/5.0' },
+            signal: controller.signal,
         });
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000);
-        try {
-            const res = await fetch(KRX_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'User-Agent': 'Mozilla/5.0',
-                    Referer: 'https://data.krx.co.kr/',
-                },
-                body: body.toString(),
-                signal: controller.signal,
-            });
-            clearTimeout(timeoutId);
-            if (!res.ok) {
-                errors.push(`KRX HTTP ${res.status} (${trdDd})`);
-                continue;
-            }
-            const json = await res.json();
-            const output = json.output || json.Output || [];
-            if (!output.length) {
-                errors.push(`KRX empty output (${trdDd})`);
-                continue;
-            }
-
-            const holdings = output.slice(0, 25).map((row, idx) => ({
-                rank: idx + 1,
-                ticker: (row.ISU_SRT_CD || '').trim(),
-                name: (row.ISU_NM || row.ISU_ABBRV || '').trim(),
-                weight: parseFloat(row.VALU_PT || 0),
-                shares: parseInt((row.SHRS || '0').replace(/,/g, ''), 10),
-                value: parseInt((row.APPRAISVAL || '0').replace(/,/g, ''), 10),
-            }));
-
-            return { data: { holdings, source: 'KRX', tradingDate: trdDd }, debugError: null };
-        } catch (e) {
-            clearTimeout(timeoutId);
-            errors.push(`KRX exception (${trdDd}): ${e.message}`);
-            continue;
+        clearTimeout(timeoutId);
+        if (!res.ok) {
+            return { data: null, debugError: `FnGuide HTTP ${res.status}` };
         }
+        const html = await res.text();
+
+        // HTML 내 인라인 JS 변수 CU_data 추출
+        const match = html.match(/var\s+CU_data\s*=\s*(\{[\s\S]*?\});/);
+        if (!match) {
+            return { data: null, debugError: 'FnGuide: CU_data not found in HTML' };
+        }
+        const cuData = JSON.parse(match[1]);
+        const gridData = cuData.grid_data || [];
+        if (!gridData.length) {
+            return { data: null, debugError: 'FnGuide: grid_data empty' };
+        }
+
+        const tradingDate = (gridData[0].TRD_DT || '').replace(/-/g, '');
+        const holdings = gridData.slice(0, 25).map((row, idx) => ({
+            rank: idx + 1,
+            ticker: '',
+            name: (row.STK_NM_KOR || '').trim(),
+            weight: parseFloat((row.ETF_WEIGHT || 0).toFixed(2)),
+            shares: row.AGMT_STK_CNT ? Math.round(row.AGMT_STK_CNT) : null,
+            value: null,
+        }));
+
+        return { data: { holdings, source: 'FnGuide', tradingDate }, debugError: null };
+    } catch (e) {
+        clearTimeout(timeoutId);
+        return { data: null, debugError: `FnGuide exception: ${e.message}` };
     }
-    return { data: null, debugError: errors.join(' | ') };
 };
 
 // ── US/KR 공통: Yahoo Finance topHoldings ────────────────────────────────
@@ -199,12 +92,12 @@ export const handler = async (event) => {
         let data = null;
 
         if (country === 'KR') {
-            // 1순위: KRX 정보데이터시스템
-            const krxResult = await fetchKrxHoldings(symbol);
-            if (krxResult.debugError) debugErrors.push(krxResult.debugError);
-            data = krxResult.data;
+            // 1순위: FnGuide (navercomp) CU 구성종목
+            const fnResult = await fetchFnGuideHoldings(symbol);
+            if (fnResult.debugError) debugErrors.push(fnResult.debugError);
+            data = fnResult.data;
 
-            // 2순위: KRX 실패 시 Yahoo Finance topHoldings 폴백
+            // 2순위: FnGuide 실패 시 Yahoo Finance topHoldings 폴백
             if (!data) {
                 try {
                     const yahooSymbol = symbol + '.KS';
@@ -233,7 +126,7 @@ export const handler = async (event) => {
                 headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
                 body: JSON.stringify({
                     holdings: [],
-                    source: country === 'KR' ? 'KRX' : 'Yahoo',
+                    source: country === 'KR' ? 'FnGuide' : 'Yahoo',
                     error: 'No data available',
                     debug_error: debugErrors.join(' || '),
                 }),
