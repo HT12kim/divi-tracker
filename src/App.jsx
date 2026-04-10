@@ -2281,8 +2281,16 @@ function DashboardApp() {
             const m = ticker.match(/(\d{6})/);
             const symbol = isKR && m ? m[1] : ticker;
             const res = await fetch(`/api/holdings?symbol=${encodeURIComponent(symbol)}&country=${country}`);
-            if (!res.ok) throw new Error('holdings fetch failed');
-            const data = await res.json();
+            if (!res.ok) throw new Error(`holdings API error: HTTP ${res.status}`);
+            const text = await res.text();
+            let data;
+            try {
+                data = JSON.parse(text);
+            } catch {
+                // 함수가 미배포 상태이거나 초기화 실패 시 Netlify가 HTML을 대신 반환
+                console.warn(`[holdings:${ticker}] Non-JSON response (function not available):`, text.slice(0, 150));
+                data = { holdings: [], error: 'Function not available', debug_error: text.slice(0, 100) };
+            }
             if (data.debug_error) console.warn(`[holdings:${ticker}]`, data.debug_error);
             setEtpHoldings((prev) => ({ ...prev, [ticker]: data }));
         } catch (err) {

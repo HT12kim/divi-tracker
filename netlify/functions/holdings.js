@@ -111,6 +111,8 @@ const fetchKrxHoldings = async (shortCode) => {
             isuCd: stdCode,
             trdDd,
         });
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
         try {
             const res = await fetch(KRX_URL, {
                 method: 'POST',
@@ -120,8 +122,9 @@ const fetchKrxHoldings = async (shortCode) => {
                     Referer: 'https://data.krx.co.kr/',
                 },
                 body: body.toString(),
-                signal: AbortSignal.timeout(8000),
+                signal: controller.signal,
             });
+            clearTimeout(timeoutId);
             if (!res.ok) {
                 errors.push(`KRX HTTP ${res.status} (${trdDd})`);
                 continue;
@@ -144,6 +147,7 @@ const fetchKrxHoldings = async (shortCode) => {
 
             return { data: { holdings, source: 'KRX', tradingDate: trdDd }, debugError: null };
         } catch (e) {
+            clearTimeout(timeoutId);
             errors.push(`KRX exception (${trdDd}): ${e.message}`);
             continue;
         }
