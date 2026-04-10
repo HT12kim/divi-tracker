@@ -1,25 +1,44 @@
-import { execSync } from 'child_process';
-import { writeFileSync, readFileSync, unlinkSync, existsSync } from 'fs';
+import { inflateRaw } from 'zlib';
+import { promisify } from 'util';
 
+const inflateRawP = promisify(inflateRaw);
 const SEC_USER_AGENT = 'DividendMaster/1.0 (fruciante86@gmail.com)';
 const DART_API_KEY = process.env.DART_API_KEY || '';
 
-// ── SEC EDGAR: ticker → CIK → XBRL CAPEX ──────────────────────────────────
-let tickerToCik = null;
+// ── SEC EDGAR: ticker → CIK (regex 텍스트 스캔으로 전체 JSON.parse 회피) ────
+let tickerToCikCache = {};
 
-const loadTickerToCik = async () => {
-    if (tickerToCik) return tickerToCik;
-    const res = await fetch('https://www.sec.gov/files/company_tickers.json', {
-        headers: { 'User-Agent': SEC_USER_AGENT },
-    });
-    if (!res.ok) throw new Error(`SEC tickers HTTP ${res.status}`);
-    const data = await res.json();
-    const map = {};
-    for (const entry of Object.values(data)) {
-        map[entry.ticker.toUpperCase()] = String(entry.cik_str).padStart(10, '0');
+const findCikByTicker = async (ticker) => {
+    const key = ticker.toUpperCase();
+    if (tickerToCikCache[key]) return tickerToCikCache[key];
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    try {
+        const res = await fetch('https://www.sec.gov/files/company_tickers.json', {
+            headers: { 'User-Agent': SEC_USER_AGENT },
+            signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        if (!res.ok) throw new Error(`SEC tickers HTTP ${res.status}`);
+
+        // 전체 JSON.parse 대신 regex 텍스트 스캔 → 특정 ticker의 CIK만 추출
+        // 형식: {"cik_str": 320193, "ticker": "AAPL", "title": "..."}
+        const text = await res.text();
+        const reForward = new RegExp(`"cik_str"\\s*:\\s*(\\d+)[^}]+?"ticker"\\s*:\\s*"${key}"`, 'i');
+        const reBackward = new RegExp(`"ticker"\\s*:\\s*"${key}"[^}]+?"cik_str"\\s*:\\s*(\\d+)`, 'i');
+        const mf = reForward.exec(text);
+        const mb = reBackward.exec(text);
+        const cikNum = mf?.[1] ?? mb?.[1];
+        if (!cikNum) return null;
+
+        const cik = String(cikNum).padStart(10, '0');
+        tickerToCikCache[key] = cik;
+        return cik;
+    } catch (e) {
+        clearTimeout(timeoutId);
+        throw e;
     }
-    tickerToCik = map;
-    return map;
 };
 
 // 우선순위 순으로 시도. CapitalExpendituresIncurredButNotYetPaid는 미지급 발생액이므로 제외.
@@ -29,12 +48,16 @@ const CAPEX_TAGS = [
 ];
 
 const fetchSecCapex = async (ticker) => {
-    const map = await loadTickerToCik();
-    const cik = map[ticker.toUpperCase()];
+    let cik;
+    try {
+        cik = await findCikByTicker(ticker);
+    } catch (e) {
+        return { data: null, debugError: `CIK lookup failed: ${e.message}` };
+    }
     if (!cik) return { data: null, debugError: `CIK not found for ${ticker}` };
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 25000);
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
     try {
         const res = await fetch(`https://data.sec.gov/api/xbrl/companyfacts/CIK${cik}.json`, {
             headers: { 'User-Agent': SEC_USER_AGENT },
@@ -127,6 +150,39 @@ const formatUSD = (val) => {
     return val.toLocaleString('en-US');
 };
 
+// ── 순수 Node.js ZIP 파서 (system unzip 불필요) ───────────────────────────
+// 스트리밍 ZIP은 로컬 헤더의 compressedSize가 0일 수 있으므로
+// Central Directory(항상 정확한 크기 보유)에서 크기를 읽음
+const readFirstZipEntry = async (buf) => {
+    // 1. EOCD(End of Central Directory) 탐색: 끝에서 역방향으로 0x06054b50 탐색
+    let eocdPos = buf.length - 22;
+    while (eocdPos >= 0 && buf.readUInt32LE(eocdPos) !== 0x06054b50) eocdPos--;
+    if (eocdPos < 0) throw new Error('ZIP: EOCD signature not found');
+
+    // 2. Central Directory 위치와 항목 수
+    const cdOffset = buf.readUInt32LE(eocdPos + 16);
+    // cdCount = buf.readUInt16LE(eocdPos + 8) — 첫 번째 항목만 필요
+
+    // 3. Central Directory 첫 항목 파싱 (signature 0x02014b50)
+    if (buf.readUInt32LE(cdOffset) !== 0x02014b50) throw new Error('ZIP: Central Directory signature not found');
+    const compression = buf.readUInt16LE(cdOffset + 10);
+    const compressedSize = buf.readUInt32LE(cdOffset + 20);
+    const fnLen = buf.readUInt16LE(cdOffset + 28);
+    const extraLen = buf.readUInt16LE(cdOffset + 30);
+    const commentLen = buf.readUInt16LE(cdOffset + 32);
+    const localHdrOffset = buf.readUInt32LE(cdOffset + 42);
+
+    // 4. Local file header에서 실제 데이터 시작 위치 계산
+    const lFnLen = buf.readUInt16LE(localHdrOffset + 26);
+    const lExtraLen = buf.readUInt16LE(localHdrOffset + 28);
+    const dataStart = localHdrOffset + 30 + lFnLen + lExtraLen;
+    const compressedData = buf.subarray(dataStart, dataStart + compressedSize);
+
+    if (compression === 0) return compressedData; // STORE
+    if (compression === 8) return inflateRawP(compressedData); // DEFLATE
+    throw new Error(`ZIP: unsupported compression method ${compression}`);
+};
+
 // ── DART: 종목코드 → corp_code → 재무제표 CAPEX ────────────────────────────
 let corpCodeMap = null;
 let corpCodeMapExpiry = 0;
@@ -141,11 +197,9 @@ const loadCorpCodeMap = async () => {
     if (!res.ok) throw new Error(`DART corpCode HTTP ${res.status}`);
 
     const zipBuf = Buffer.from(await res.arrayBuffer());
-    const tmpZip = '/tmp/corpcode_capex.zip';
-    const tmpXml = '/tmp/CORPCODE.xml';
-    writeFileSync(tmpZip, zipBuf);
-    execSync(`cd /tmp && unzip -o corpcode_capex.zip`);
-    const xml = readFileSync(tmpXml, 'utf-8');
+    // 순수 JS ZIP 파서: system unzip 바이너리 불필요
+    const xmlBuf = await readFirstZipEntry(zipBuf);
+    const xml = xmlBuf.toString('utf-8');
 
     const map = {};
     const entries = xml.match(/<list>[\s\S]*?<\/list>/g) || [];
@@ -154,14 +208,6 @@ const loadCorpCodeMap = async () => {
         const cc = entry.match(/<corp_code>([^<]+)/)?.[1]?.trim();
         if (sc && sc.trim() && cc) map[sc] = cc;
     }
-
-    // 클린업
-    try {
-        unlinkSync(tmpZip);
-    } catch (_) {}
-    try {
-        unlinkSync(tmpXml);
-    } catch (_) {}
 
     corpCodeMap = map;
     corpCodeMapExpiry = now + 24 * 60 * 60 * 1000; // 24시간 캐시

@@ -2473,6 +2473,11 @@ function DashboardApp() {
         try {
             const country = stock.country || 'US';
             const res = await fetch(`/api/capex?symbol=${encodeURIComponent(ticker)}&country=${country}`);
+            // HTML 에러 페이지(타임아웃/502 등) 방어 처리
+            const contentType = res.headers.get('content-type') || '';
+            if (!res.ok || !contentType.includes('application/json')) {
+                throw new Error(`서버 응답 오류 (HTTP ${res.status})`);
+            }
             const data = await res.json();
             setCapexData((prev) => ({ ...prev, [ticker]: data }));
         } catch (err) {
