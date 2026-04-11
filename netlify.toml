@@ -21,6 +21,11 @@
 [functions."capex"]
   included_files = ["netlify/functions/corp-codes.json"]
 
+[[redirects]]
+  from = "/api/etf-explorer"
+  to = "/.netlify/functions/etf-explorer"
+  status = 200
+
 [[headers]]
   for = "/"
   [headers.values]

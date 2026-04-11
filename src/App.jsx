@@ -1735,10 +1735,310 @@ function StockDetailView({ stock, holdingsData, loadingHoldings, capexData, load
 }
 
 // ─────────────────────────────────────────────
-// 14. App Root
+// 14. EtfExplorerPage
+// ─────────────────────────────────────────────
+const ETF_FUNDS = [
+    { id: 'ARKK', label: 'ARKK', desc: 'ARK Innovation ETF', color: 'text-indigo-500' },
+    { id: 'BRK-B', label: 'BRK-B', desc: '버크셔 해서웨이', color: 'text-amber-500' },
+];
+
+function EtfExplorerPage({ onBack }) {
+    const { dark } = useTheme();
+    const [activeFund, setActiveFund] = useState('ARKK');
+    const [data, setData] = useState({}); // { ARKK: {...}, 'BRK-B': {...} }
+    const [loading, setLoading] = useState({});
+    const [errors, setErrors] = useState({});
+
+    const fetchFund = useCallback(
+        async (fund) => {
+            if (data[fund] || loading[fund]) return;
+            setLoading((p) => ({ ...p, [fund]: true }));
+            try {
+                const res = await fetch(`/api/etf-explorer?fund=${encodeURIComponent(fund)}`);
+                const json = await res.json();
+                if (json.error && !json.holdings?.length) throw new Error(json.error);
+                setData((p) => ({ ...p, [fund]: json }));
+            } catch (e) {
+                setErrors((p) => ({ ...p, [fund]: e.message }));
+            } finally {
+                setLoading((p) => ({ ...p, [fund]: false }));
+            }
+        },
+        [data, loading],
+    );
+
+    useEffect(() => {
+        fetchFund(activeFund);
+    }, [activeFund]);
+
+    const current = data[activeFund];
+    const isLoading = loading[activeFund];
+    const error = errors[activeFund];
+
+    const fmtPrice = (v) => {
+        if (v == null) return '—';
+        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(
+            v,
+        );
+    };
+    const fmtMdd = (v) => {
+        if (v == null) return '—';
+        const cls =
+            v <= -50
+                ? 'text-red-600 dark:text-red-400'
+                : v <= -30
+                  ? 'text-orange-500 dark:text-orange-400'
+                  : 'text-yellow-600 dark:text-yellow-400';
+        return <span className={cls}>{v.toFixed(1)}%</span>;
+    };
+
+    return (
+        <main className="flex-1 max-w-screen-lg w-full mx-auto px-3 sm:px-6 py-4 sm:py-6">
+            {/* 상단 헤더 */}
+            <div className="flex items-center gap-3 mb-5">
+                <button
+                    onClick={onBack}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium
+                        bg-white/70 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700
+                        text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                >
+                    ← 뒤로
+                </button>
+                <div>
+                    <h1 className="text-base font-bold text-slate-900 dark:text-white">ETF 탐색기</h1>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                        구성종목 · 비중 · 가격 · 3년 MDD · 매매내역
+                    </p>
+                </div>
+            </div>
+
+            {/* 펀드 탭 */}
+            <div className="flex gap-2 mb-5">
+                {ETF_FUNDS.map((f) => (
+                    <button
+                        key={f.id}
+                        onClick={() => setActiveFund(f.id)}
+                        className={`px-4 py-2 rounded-xl text-sm font-semibold border transition-all
+                            ${
+                                activeFund === f.id
+                                    ? 'bg-indigo-600 border-indigo-500 text-white shadow-md'
+                                    : 'bg-white/70 dark:bg-slate-800/70 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-slate-700'
+                            }`}
+                    >
+                        <span className={activeFund === f.id ? 'text-white' : f.color}>{f.label}</span>
+                        <span
+                            className={`ml-1.5 text-xs font-normal ${activeFund === f.id ? 'text-indigo-200' : 'text-slate-400'}`}
+                        >
+                            {f.desc}
+                        </span>
+                    </button>
+                ))}
+            </div>
+
+            {/* 로딩 */}
+            {isLoading && (
+                <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 p-6 shadow-xl">
+                    <div className="space-y-3 animate-pulse">
+                        {[...Array(8)].map((_, i) => (
+                            <div key={i} className="flex gap-3 items-center">
+                                <div className="w-6 h-4 bg-slate-200 dark:bg-slate-700 rounded" />
+                                <div className="flex-1 h-4 bg-slate-200 dark:bg-slate-700 rounded" />
+                                <div className="w-16 h-4 bg-slate-200 dark:bg-slate-700 rounded" />
+                                <div className="w-20 h-4 bg-slate-200 dark:bg-slate-700 rounded" />
+                                <div className="w-16 h-4 bg-slate-200 dark:bg-slate-700 rounded" />
+                                <div className="w-16 h-4 bg-slate-200 dark:bg-slate-700 rounded" />
+                            </div>
+                        ))}
+                    </div>
+                    <p className="text-center text-xs text-slate-400 mt-4">
+                        데이터 로딩 중… (가격 · MDD 계산 포함, 최대 30초 소요)
+                    </p>
+                </div>
+            )}
+
+            {/* 에러 */}
+            {!isLoading && error && (
+                <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 border border-red-200 dark:border-red-800/40 p-6 shadow-xl flex items-center gap-3">
+                    <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+                    <div>
+                        <p className="text-sm font-semibold text-red-600 dark:text-red-400">데이터 로딩 실패</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{error}</p>
+                    </div>
+                </div>
+            )}
+
+            {/* 구성종목 테이블 */}
+            {!isLoading && current && (
+                <>
+                    <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 shadow-xl mb-4 overflow-hidden">
+                        <div className="px-4 sm:px-5 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                                <BarChart2 className="w-4 h-4 text-indigo-500" />
+                                <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                                    구성종목 ({current.holdings?.length ?? 0}개)
+                                </h2>
+                            </div>
+                            <div className="text-right">
+                                <span className="text-xs text-slate-400 dark:text-slate-500">
+                                    출처: {current.source}
+                                </span>
+                                {current.updatedAt && (
+                                    <span className="ml-2 text-xs text-slate-300 dark:text-slate-600">
+                                        {new Date(current.updatedAt).toLocaleTimeString('ko-KR', {
+                                            hour: '2-digit',
+                                            minute: '2-digit',
+                                        })}{' '}
+                                        기준
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* 모바일 스크롤 가능 테이블 */}
+                        <div className="overflow-x-auto">
+                            <table className="w-full min-w-[560px] text-sm">
+                                <thead className="sticky top-0 bg-slate-50/90 dark:bg-slate-800/90 backdrop-blur">
+                                    <tr>
+                                        {['#', '종목명', '티커', '비중', '가격(USD)', '3년 MDD'].map((h) => (
+                                            <th
+                                                key={h}
+                                                className="px-3 sm:px-4 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap"
+                                            >
+                                                {h}
+                                            </th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                    {(current.holdings || []).map((h) => (
+                                        <tr
+                                            key={h.ticker}
+                                            className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors"
+                                        >
+                                            <td className="px-3 sm:px-4 py-2.5 text-xs text-slate-400 tabular-nums w-8">
+                                                {h.rank}
+                                            </td>
+                                            <td className="px-3 sm:px-4 py-2.5 max-w-[180px]">
+                                                <span className="text-xs font-medium text-slate-800 dark:text-slate-200 line-clamp-1">
+                                                    {h.name}
+                                                </span>
+                                            </td>
+                                            <td className="px-3 sm:px-4 py-2.5">
+                                                <span className="text-xs font-mono font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-1.5 py-0.5 rounded">
+                                                    {h.ticker}
+                                                </span>
+                                            </td>
+                                            <td className="px-3 sm:px-4 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-300 tabular-nums">
+                                                {h.weight > 0 ? h.weight.toFixed(2) + '%' : '—'}
+                                            </td>
+                                            <td className="px-3 sm:px-4 py-2.5 text-xs tabular-nums text-slate-700 dark:text-slate-300">
+                                                {fmtPrice(h.price)}
+                                            </td>
+                                            <td className="px-3 sm:px-4 py-2.5 text-xs tabular-nums font-semibold">
+                                                {fmtMdd(h.mdd3y)}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                        <p className="px-4 py-2 text-[10px] text-slate-400 dark:text-slate-600 border-t border-slate-100 dark:border-slate-800">
+                            * 3년 MDD(최대낙폭): 월봉 기준. 상위 15개 종목만 표시. 투자 참고용이며 투자 권유가 아닙니다.
+                        </p>
+                    </div>
+
+                    {/* 최근 매매 내역 */}
+                    <EtfTradesSection trades={current.trades} fund={activeFund} note={current.note} />
+                </>
+            )}
+        </main>
+    );
+}
+
+function EtfTradesSection({ trades, fund, note }) {
+    if (note && !trades?.length) {
+        return (
+            <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 p-5 shadow-xl">
+                <div className="flex items-center gap-2 mb-2">
+                    <Clock className="w-4 h-4 text-amber-500" />
+                    <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">최근 매매 내역</h2>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{note}</p>
+            </div>
+        );
+    }
+
+    if (!trades?.length) return null;
+
+    return (
+        <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 shadow-xl overflow-hidden">
+            <div className="px-4 sm:px-5 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center gap-2">
+                <Clock className="w-4 h-4 text-amber-500" />
+                <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                    최근 매매 내역 <span className="text-xs font-normal text-slate-400">(최근 1개월)</span>
+                </h2>
+            </div>
+            <div className="overflow-x-auto">
+                <table className="w-full min-w-[480px] text-sm">
+                    <thead className="bg-slate-50/90 dark:bg-slate-800/90">
+                        <tr>
+                            {['날짜', '방향', '티커', '종목명', '수량', 'ETF 비중'].map((h) => (
+                                <th
+                                    key={h}
+                                    className="px-3 sm:px-4 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap"
+                                >
+                                    {h}
+                                </th>
+                            ))}
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                        {trades.map((t, i) => (
+                            <tr key={i} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
+                                <td className="px-3 sm:px-4 py-2.5 text-xs text-slate-500 dark:text-slate-400 tabular-nums whitespace-nowrap">
+                                    {t.date ? t.date.slice(0, 10) : '—'}
+                                </td>
+                                <td className="px-3 sm:px-4 py-2.5">
+                                    <span
+                                        className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full
+                                        ${
+                                            t.direction === 'BUY'
+                                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                                                : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                                        }`}
+                                    >
+                                        {t.direction === 'BUY' ? '▲ 매수' : '▼ 매도'}
+                                    </span>
+                                </td>
+                                <td className="px-3 sm:px-4 py-2.5">
+                                    <span className="text-xs font-mono font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-1.5 py-0.5 rounded">
+                                        {t.ticker}
+                                    </span>
+                                </td>
+                                <td className="px-3 sm:px-4 py-2.5 text-xs text-slate-700 dark:text-slate-300 max-w-[160px]">
+                                    <span className="line-clamp-1">{t.name}</span>
+                                </td>
+                                <td className="px-3 sm:px-4 py-2.5 text-xs tabular-nums text-slate-600 dark:text-slate-400">
+                                    {t.shares > 0 ? t.shares.toLocaleString() : '—'}
+                                </td>
+                                <td className="px-3 sm:px-4 py-2.5 text-xs tabular-nums text-slate-600 dark:text-slate-400">
+                                    {t.etfPercent != null ? t.etfPercent.toFixed(4) + '%' : '—'}
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────
+// 15. App Root
 // ─────────────────────────────────────────────
 function DashboardApp() {
     const { dark, toggle } = useTheme();
+    const [currentPage, setCurrentPage] = useState('main'); // 'main' | 'etf-explorer'
 
     const [liveCache, setLiveCache] = useState(() => {
         try {
@@ -2418,6 +2718,21 @@ function DashboardApp() {
                         />
                     </div>
 
+                    {/* ETF 탐색기 탭 버튼 */}
+                    <button
+                        onClick={() => setCurrentPage(currentPage === 'etf-explorer' ? 'main' : 'etf-explorer')}
+                        className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium
+                            border transition-colors shadow-sm
+                            ${
+                                currentPage === 'etf-explorer'
+                                    ? 'bg-indigo-600 border-indigo-500 text-white hover:bg-indigo-700'
+                                    : 'bg-white/70 dark:bg-slate-900/70 backdrop-blur border-white/60 dark:border-slate-800/70 text-slate-700 dark:text-slate-300 hover:bg-indigo-50/80 dark:hover:bg-slate-800'
+                            }`}
+                    >
+                        <BarChart2 className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">ETF 탐색기</span>
+                    </button>
+
                     <button
                         onClick={toggle}
                         className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium
@@ -2434,35 +2749,39 @@ function DashboardApp() {
                 </div>
             </header>
 
-            <main className="flex-1 max-w-screen-lg w-full mx-auto px-3 sm:px-6 py-3 sm:py-6 relative overflow-x-hidden">
-                <div
-                    className="absolute inset-0 rounded-[24px] bg-white/18 dark:bg-slate-900/18 blur-3xl"
-                    aria-hidden
-                />
-                <div className="relative w-full max-w-full overflow-hidden rounded-[22px] border border-slate-200/80 dark:border-slate-800/60 bg-white/70 dark:bg-slate-900/55 backdrop-blur-2xl shadow-2xl shadow-black/10 p-3 sm:p-6">
-                    <div className="flex w-full min-w-0 flex-col xl:flex-row gap-5 items-start">
-                        <WatchlistPanel
-                            watchlist={watchlist}
-                            selected={selected}
-                            onSelect={setSelected}
-                            onRemove={handleRemove}
-                        />
-                        {selected ? (
-                            <StockDetailView
-                                stock={selected}
-                                holdingsData={etpHoldings[selected.ticker]}
-                                loadingHoldings={loadingHoldings}
-                                capexData={capexData[selected.ticker]}
-                                loadingCapex={loadingCapex}
+            {currentPage === 'etf-explorer' ? (
+                <EtfExplorerPage onBack={() => setCurrentPage('main')} />
+            ) : (
+                <main className="flex-1 max-w-screen-lg w-full mx-auto px-3 sm:px-6 py-3 sm:py-6 relative overflow-x-hidden">
+                    <div
+                        className="absolute inset-0 rounded-[24px] bg-white/18 dark:bg-slate-900/18 blur-3xl"
+                        aria-hidden
+                    />
+                    <div className="relative w-full max-w-full overflow-hidden rounded-[22px] border border-slate-200/80 dark:border-slate-800/60 bg-white/70 dark:bg-slate-900/55 backdrop-blur-2xl shadow-2xl shadow-black/10 p-3 sm:p-6">
+                        <div className="flex w-full min-w-0 flex-col xl:flex-row gap-5 items-start">
+                            <WatchlistPanel
+                                watchlist={watchlist}
+                                selected={selected}
+                                onSelect={setSelected}
+                                onRemove={handleRemove}
                             />
-                        ) : (
-                            <div className="flex-1">
-                                <EmptyState onPickTicker={handleFetchLive} />
-                            </div>
-                        )}
+                            {selected ? (
+                                <StockDetailView
+                                    stock={selected}
+                                    holdingsData={etpHoldings[selected.ticker]}
+                                    loadingHoldings={loadingHoldings}
+                                    capexData={capexData[selected.ticker]}
+                                    loadingCapex={loadingCapex}
+                                />
+                            ) : (
+                                <div className="flex-1">
+                                    <EmptyState onPickTicker={handleFetchLive} />
+                                </div>
+                            )}
+                        </div>
                     </div>
-                </div>
-            </main>
+                </main>
+            )}
 
             <PopularStocksGuide />
 
