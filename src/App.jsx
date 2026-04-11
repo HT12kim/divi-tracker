@@ -129,7 +129,7 @@ function KakaoShareButton() {
         <button
             onClick={handleShare}
             aria-label="카카오톡으로 공유하기"
-            className="fixed bottom-6 left-4 z-50 flex items-center gap-2 px-4 py-3 rounded-2xl
+            className="fixed bottom-[72px] left-4 z-50 flex items-center gap-2 px-4 py-3 rounded-2xl
                 bg-[#FEE500] hover:bg-[#F0D800] active:bg-[#E6CD00]
                 text-[#3A1D1D] font-semibold text-sm
                 shadow-lg shadow-black/20 transition-all hover:scale-105 active:scale-95"
@@ -1722,13 +1722,7 @@ function CapexContainer({ stock, capexData, loading }) {
 // ─────────────────────────────────────────────
 // 13. StockDetailView
 // ─────────────────────────────────────────────
-function StockDetailView({
-    stock,
-    holdingsData,
-    loadingHoldings,
-    capexData,
-    loadingCapex,
-}) {
+function StockDetailView({ stock, holdingsData, loadingHoldings, capexData, loadingCapex }) {
     return (
         <div className="flex-1 w-full flex flex-col gap-4 min-w-0">
             <StockInfoHeader stock={stock} />
