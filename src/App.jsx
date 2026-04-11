@@ -666,12 +666,12 @@ function StockInfoHeader({ stock }) {
                         value={fmtNum(stock.annualDPS, stock.currency)}
                         icon={<BarChart2 className="w-3.5 h-3.5" />}
                     />
-                    <MetricChip
+                    {/* <MetricChip
                         label="세율"
                         value={(stock.taxRate * 100).toFixed(1) + '%'}
                         icon={<Info className="w-3.5 h-3.5" />}
                         highlight="amber"
-                    />
+                    /> */}
                 </div>
             </div>
             <p className="mt-3 text-xs text-slate-500 dark:text-slate-400 leading-relaxed border-t border-slate-100 dark:border-slate-700 pt-3">
