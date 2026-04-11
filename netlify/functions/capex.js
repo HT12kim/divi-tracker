@@ -1,9 +1,18 @@
-import { inflateRaw } from 'zlib';
-import { promisify } from 'util';
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
 
-const inflateRawP = promisify(inflateRaw);
 const SEC_USER_AGENT = 'DividendMaster/1.0 (fruciante86@gmail.com)';
 const DART_API_KEY = process.env.DART_API_KEY || '';
+
+// 빌드 시 생성된 corp-codes.json을 한 번만 읽어 캐싱
+// Netlify esbuild는 ESM→CJS 변환하므로 __dirname 사용
+let _corpCodeMap = null;
+const getCorpCodeMap = () => {
+    if (_corpCodeMap) return _corpCodeMap;
+    const jsonPath = resolve(__dirname, 'corp-codes.json');
+    _corpCodeMap = JSON.parse(readFileSync(jsonPath, 'utf-8'));
+    return _corpCodeMap;
+};
 
 // ── SEC EDGAR: ticker → CIK (regex 텍스트 스캔으로 전체 JSON.parse 회피) ────
 let tickerToCikCache = {};
@@ -150,69 +159,7 @@ const formatUSD = (val) => {
     return val.toLocaleString('en-US');
 };
 
-// ── 순수 Node.js ZIP 파서 (system unzip 불필요) ───────────────────────────
-// 스트리밍 ZIP은 로컬 헤더의 compressedSize가 0일 수 있으므로
-// Central Directory(항상 정확한 크기 보유)에서 크기를 읽음
-const readFirstZipEntry = async (buf) => {
-    // 1. EOCD(End of Central Directory) 탐색: 끝에서 역방향으로 0x06054b50 탐색
-    let eocdPos = buf.length - 22;
-    while (eocdPos >= 0 && buf.readUInt32LE(eocdPos) !== 0x06054b50) eocdPos--;
-    if (eocdPos < 0) throw new Error('ZIP: EOCD signature not found');
-
-    // 2. Central Directory 위치와 항목 수
-    const cdOffset = buf.readUInt32LE(eocdPos + 16);
-    // cdCount = buf.readUInt16LE(eocdPos + 8) — 첫 번째 항목만 필요
-
-    // 3. Central Directory 첫 항목 파싱 (signature 0x02014b50)
-    if (buf.readUInt32LE(cdOffset) !== 0x02014b50) throw new Error('ZIP: Central Directory signature not found');
-    const compression = buf.readUInt16LE(cdOffset + 10);
-    const compressedSize = buf.readUInt32LE(cdOffset + 20);
-    const fnLen = buf.readUInt16LE(cdOffset + 28);
-    const extraLen = buf.readUInt16LE(cdOffset + 30);
-    const commentLen = buf.readUInt16LE(cdOffset + 32);
-    const localHdrOffset = buf.readUInt32LE(cdOffset + 42);
-
-    // 4. Local file header에서 실제 데이터 시작 위치 계산
-    const lFnLen = buf.readUInt16LE(localHdrOffset + 26);
-    const lExtraLen = buf.readUInt16LE(localHdrOffset + 28);
-    const dataStart = localHdrOffset + 30 + lFnLen + lExtraLen;
-    const compressedData = buf.subarray(dataStart, dataStart + compressedSize);
-
-    if (compression === 0) return compressedData; // STORE
-    if (compression === 8) return inflateRawP(compressedData); // DEFLATE
-    throw new Error(`ZIP: unsupported compression method ${compression}`);
-};
-
 // ── DART: 종목코드 → corp_code → 재무제표 CAPEX ────────────────────────────
-let corpCodeMap = null;
-let corpCodeMapExpiry = 0;
-
-const loadCorpCodeMap = async () => {
-    const now = Date.now();
-    if (corpCodeMap && now < corpCodeMapExpiry) return corpCodeMap;
-
-    if (!DART_API_KEY) throw new Error('DART_API_KEY not configured');
-
-    const res = await fetch(`https://opendart.fss.or.kr/api/corpCode.xml?crtfc_key=${DART_API_KEY}`);
-    if (!res.ok) throw new Error(`DART corpCode HTTP ${res.status}`);
-
-    const zipBuf = Buffer.from(await res.arrayBuffer());
-    // 순수 JS ZIP 파서: system unzip 바이너리 불필요
-    const xmlBuf = await readFirstZipEntry(zipBuf);
-    const xml = xmlBuf.toString('utf-8');
-
-    const map = {};
-    const entries = xml.match(/<list>[\s\S]*?<\/list>/g) || [];
-    for (const entry of entries) {
-        const sc = entry.match(/<stock_code>([^<]+)/)?.[1]?.trim();
-        const cc = entry.match(/<corp_code>([^<]+)/)?.[1]?.trim();
-        if (sc && sc.trim() && cc) map[sc] = cc;
-    }
-
-    corpCodeMap = map;
-    corpCodeMapExpiry = now + 24 * 60 * 60 * 1000; // 24시간 캐시
-    return map;
-};
 
 const CAPEX_KR_PATTERNS = [/유형자산의\s*취득/, /유형자산\s*취득/, /설비투자/, /자본적\s*지출/];
 
@@ -234,7 +181,7 @@ const formatKRW = (val) => {
 const fetchDartCapex = async (stockCode) => {
     if (!DART_API_KEY) return { data: null, debugError: 'DART_API_KEY not set' };
 
-    const map = await loadCorpCodeMap();
+    const map = getCorpCodeMap();
     const corpCode = map[stockCode];
     if (!corpCode) {
         return {
@@ -251,7 +198,7 @@ const fetchDartCapex = async (stockCode) => {
 
     const fetchOneYear = async (yr) => {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 12000);
+        const timeoutId = setTimeout(() => controller.abort(), 6000);
         try {
             const url = `https://opendart.fss.or.kr/api/fnlttSinglAcntAll.json?crtfc_key=${DART_API_KEY}&corp_code=${corpCode}&bsns_year=${yr}&reprt_code=11011&fs_div=CFS`;
             const res = await fetch(url, { signal: controller.signal });
@@ -282,7 +229,10 @@ const fetchDartCapex = async (stockCode) => {
             continue;
         }
         const { yr, error, capexItem } = result.value;
-        if (error) { debugErrors.push(`DART ${yr}: ${error}`); continue; }
+        if (error) {
+            debugErrors.push(`DART ${yr}: ${error}`);
+            continue;
+        }
         const thstrm = parseKrAmount(capexItem.thstrm_amount);
         const frmtrm = parseKrAmount(capexItem.frmtrm_amount);
         const bfefrmtrm = parseKrAmount(capexItem.bfefrmtrm_amount);
@@ -317,6 +267,8 @@ const fetchDartCapex = async (stockCode) => {
 };
 
 // ── Netlify Handler ────────────────────────────────────────────────────────
+const HANDLER_TIMEOUT_MS = 8000; // Netlify Free 10초 제한 → 8초 안전장치
+
 export const handler = async (event) => {
     const params = event.queryStringParameters || {};
     const symbol = (params.symbol || '').trim();
@@ -332,20 +284,31 @@ export const handler = async (event) => {
 
     const debugErrors = [];
 
-    try {
-        let data = null;
+    // 글로벌 타임아웃: 8초 이내에 응답 보장 (504 방지)
+    const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Handler timeout (8s)')), HANDLER_TIMEOUT_MS),
+    );
 
-        if (country === 'KR') {
-            const shortCode = symbol.replace(/\.KS|\.KQ/i, '');
-            const result = await fetchDartCapex(shortCode);
-            if (result.debugError) debugErrors.push(result.debugError);
-            data = result.data;
-        } else {
-            const ticker = symbol.replace(/\.(US|N|O|A)$/i, '');
-            const result = await fetchSecCapex(ticker);
-            if (result.debugError) debugErrors.push(result.debugError);
-            data = result.data;
-        }
+    try {
+        const work = async () => {
+            let data = null;
+
+            if (country === 'KR') {
+                const shortCode = symbol.replace(/\.KS|\.KQ/i, '');
+                const result = await fetchDartCapex(shortCode);
+                if (result.debugError) debugErrors.push(result.debugError);
+                data = result.data;
+            } else {
+                const ticker = symbol.replace(/\.(US|N|O|A)$/i, '');
+                const result = await fetchSecCapex(ticker);
+                if (result.debugError) debugErrors.push(result.debugError);
+                data = result.data;
+            }
+
+            return data;
+        };
+
+        const data = await Promise.race([work(), timeoutPromise]);
 
         if (!data) {
             return {

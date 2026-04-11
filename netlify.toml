@@ -19,7 +19,7 @@
   included_files = ["vite.config.csv"]
 
 [functions."capex"]
-  timeout = 26
+  included_files = ["netlify/functions/corp-codes.json"]
 
 [[headers]]
   for = "/"
