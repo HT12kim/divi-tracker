@@ -963,143 +963,8 @@ function DividendTable({ stock }) {
 }
 
 // ─────────────────────────────────────────────
-// 10. DividendCalculator
+// 10. (removed: DividendCalculator)
 // ─────────────────────────────────────────────
-function DividendCalculator({ stock, exchangeRate = DEFAULT_EXCHANGE_RATE }) {
-    const [shares, setShares] = useState('');
-    const sharesNum = parseFloat(shares) || 0;
-
-    const inferredCountByFreq = { monthly: 12, quarterly: 4, semiannual: 2, annual: 1, none: 1 };
-    const annualCount = stock.events.length > 0 ? stock.events.length : inferredCountByFreq[stock.frequency] || 1;
-
-    const derivedAnnualDps =
-        stock.annualDPS && stock.annualDPS > 0
-            ? stock.annualDPS
-            : stock.currentPrice && stock.dividendYield
-              ? (stock.currentPrice * stock.dividendYield) / 100
-              : 0;
-
-    const rate = exchangeRate ?? DEFAULT_EXCHANGE_RATE;
-    const rateLabel = exchangeRate != null ? rate.toLocaleString() : `${rate.toLocaleString()} (기본)`;
-
-    const annualGross = sharesNum * derivedAnnualDps;
-    const annualTax = annualGross * stock.taxRate;
-    const annualNet = annualGross - annualTax;
-    const perPayment = annualCount > 0 ? annualNet / annualCount : 0;
-    const annualNetKRW = toKRW(annualNet, stock.currency, rate);
-
-    const nextEv = nextExDate(stock);
-    const nextPayGross = nextEv ? sharesNum * nextEv.dps : 0;
-    const nextPayNet = nextPayGross * (1 - stock.taxRate);
-    const nextPayKRW = toKRW(nextPayNet, stock.currency, rate);
-
-    return (
-        <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 p-4 sm:p-5 shadow-xl">
-            <div className="flex items-center gap-2 mb-2 sm:mb-3">
-                <DollarSign className="w-4 h-4 text-indigo-500" />
-                <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">세후 배당금 계산기</h2>
-                {stock.currency === 'USD' && (
-                    <span className="ml-auto text-xs text-slate-400 dark:text-slate-500">환율 ₩{rateLabel}/USD</span>
-                )}
-            </div>
-
-            <div className="flex items-center gap-3 mb-4">
-                <label className="text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap">보유 수량</label>
-                <div
-                    className="flex-1 flex items-center gap-2 px-3 py-2 rounded-xl
-                    bg-white/60 dark:bg-slate-800/70 backdrop-blur border border-slate-200/80 dark:border-slate-700
-          focus-within:ring-2 focus-within:ring-indigo-500 transition-all"
-                >
-                    <input
-                        type="number"
-                        min="0"
-                        value={shares}
-                        placeholder="0"
-                        className="w-full bg-transparent text-sm font-semibold text-slate-800 dark:text-slate-200
-              outline-none placeholder:text-slate-300 dark:placeholder:text-slate-600"
-                        onChange={(e) => setShares(e.target.value)}
-                    />
-                    <span className="text-xs text-slate-400 whitespace-nowrap">
-                        {stock.currency === 'USD' ? '주' : '주/좌'}
-                    </span>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
-                <CalcCard
-                    label="연간 세전"
-                    primary={sharesNum > 0 ? fmtNum(annualGross, stock.currency) : '—'}
-                    secondary={sharesNum > 0 && stock.currency === 'USD' ? fmtKRW(annualGross * rate) : null}
-                    sub={annualCount + '회 × ' + fmtNum(derivedAnnualDps / annualCount, stock.currency)}
-                    color="slate"
-                />
-                <CalcCard
-                    label={'세금 (' + (stock.taxRate * 100).toFixed(1) + '%)'}
-                    primary={sharesNum > 0 ? '− ' + fmtNum(annualTax, stock.currency) : '—'}
-                    sub={stock.country === 'US' ? '미국 원천징수' : '국내 배당소득세'}
-                    color="amber"
-                />
-                <CalcCard
-                    label="연간 세후 수령"
-                    primary={sharesNum > 0 ? fmtNum(annualNet, stock.currency) : '—'}
-                    secondary={sharesNum > 0 && stock.currency === 'USD' ? fmtKRW(annualNetKRW) : null}
-                    sub={sharesNum > 0 ? '회당 ' + fmtNum(perPayment, stock.currency) : '수량 입력 후 계산'}
-                    color="emerald"
-                    highlight={sharesNum > 0}
-                />
-                <CalcCard
-                    label="다음 회차 수령 예상"
-                    primary={nextEv && sharesNum > 0 ? fmtNum(nextPayNet, stock.currency) : '—'}
-                    secondary={nextEv && sharesNum > 0 && stock.currency === 'USD' ? fmtKRW(nextPayKRW) : null}
-                    sub={nextEv ? '지급일 ' + nextEv.payDate : '해당 없음'}
-                    color="indigo"
-                />
-            </div>
-        </div>
-    );
-}
-
-function CalcCard({ label, primary, secondary, sub, color, highlight }) {
-    const map = {
-        slate: {
-            bg: 'bg-slate-50 dark:bg-slate-700/40',
-            border: 'border-slate-200 dark:border-slate-700',
-            val: 'text-slate-800 dark:text-slate-200',
-        },
-        amber: {
-            bg: 'bg-amber-50 dark:bg-amber-900/20',
-            border: 'border-amber-200 dark:border-amber-800/40',
-            val: 'text-amber-700 dark:text-amber-400',
-        },
-        emerald: {
-            bg: 'bg-emerald-50 dark:bg-emerald-900/20',
-            border: 'border-emerald-200 dark:border-emerald-800/40',
-            val: 'text-emerald-700 dark:text-emerald-400',
-        },
-        indigo: {
-            bg: 'bg-indigo-50 dark:bg-indigo-900/20',
-            border: 'border-indigo-200 dark:border-indigo-800/40',
-            val: 'text-indigo-700 dark:text-indigo-400',
-        },
-    };
-    const c = map[color] || map.slate;
-    return (
-        <div
-            className={
-                'rounded-xl p-3 border ' +
-                c.bg +
-                ' ' +
-                c.border +
-                (highlight ? ' ring-1 ring-emerald-400 dark:ring-emerald-600' : '')
-            }
-        >
-            <p className="text-[10px] text-slate-500 dark:text-slate-400 mb-0.5">{label}</p>
-            <p className={'text-base font-bold ' + c.val}>{primary}</p>
-            {secondary && <p className="text-xs text-slate-500 dark:text-slate-400">{secondary}</p>}
-            {sub && <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">{sub}</p>}
-        </div>
-    );
-}
 
 // ─────────────────────────────────────────────
 // 11. DpsBarChart
@@ -1859,7 +1724,6 @@ function CapexContainer({ stock, capexData, loading }) {
 // ─────────────────────────────────────────────
 function StockDetailView({
     stock,
-    exchangeRate = DEFAULT_EXCHANGE_RATE,
     holdingsData,
     loadingHoldings,
     capexData,
@@ -1872,7 +1736,6 @@ function StockDetailView({
             <DividendTimeline stock={stock} />
             <CapexContainer stock={stock} capexData={capexData} loading={loadingCapex} />
             <EtpHoldingsContainer stock={stock} holdingsData={holdingsData} loading={loadingHoldings} />
-            <DividendCalculator stock={stock} exchangeRate={exchangeRate} />
         </div>
     );
 }
@@ -2593,7 +2456,6 @@ function DashboardApp() {
                         {selected ? (
                             <StockDetailView
                                 stock={selected}
-                                exchangeRate={exchangeRate}
                                 holdingsData={etpHoldings[selected.ticker]}
                                 loadingHoldings={loadingHoldings}
                                 capexData={capexData[selected.ticker]}
