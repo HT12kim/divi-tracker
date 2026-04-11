@@ -13,7 +13,8 @@ const ARK_TRADES_URL = 'https://arkfunds.io/api/v2/etf/trades?symbol=ARKK&period
 
 // ── 가격 배치 조회 (Yahoo quoteSummary price 모듈) ─────────────────────────
 const fetchPrices = async (tickers) => {
-    const map = {};
+    const priceMap = {};
+    const ddMap = {};
     // 5개씩 병렬 조회
     const chunks = [];
     for (let i = 0; i < tickers.length; i += 5) chunks.push(tickers.slice(i, i + 5));
@@ -23,16 +24,27 @@ const fetchPrices = async (tickers) => {
             await Promise.allSettled(
                 chunk.map(async (ticker) => {
                     try {
-                        const r = await yahoo.quoteSummary(ticker, { modules: ['price'] }, { validateResult: false });
-                        map[ticker] = r?.price?.regularMarketPrice ?? null;
+                        const r = await yahoo.quoteSummary(
+                            ticker,
+                            { modules: ['price', 'summaryDetail'] },
+                            { validateResult: false },
+                        );
+                        const price = r?.price?.regularMarketPrice ?? null;
+                        const high52 = r?.summaryDetail?.fiftyTwoWeekHigh ?? null;
+                        priceMap[ticker] = price;
+                        ddMap[ticker] =
+                            price != null && high52 != null && high52 > 0
+                                ? parseFloat((((price - high52) / high52) * 100).toFixed(1))
+                                : null;
                     } catch (_) {
-                        map[ticker] = null;
+                        priceMap[ticker] = null;
+                        ddMap[ticker] = null;
                     }
                 }),
             );
         }),
     );
-    return map;
+    return { priceMap, ddMap };
 };
 
 // ── 3년 MDD 계산 ────────────────────────────────────────────────────────
@@ -398,7 +410,7 @@ export const handler = async (event) => {
 
             // 3) 가격 조회 (전체)
             const tickers = holdings.map((h) => h.ticker).filter(Boolean);
-            const priceMap = await fetchPrices(tickers);
+            const { priceMap, ddMap } = await fetchPrices(tickers);
 
             // 4) MDD 계산 (상위 15개)
             const mddTickers = tickers.slice(0, 15);
@@ -409,6 +421,7 @@ export const handler = async (event) => {
                 ...h,
                 price: priceMap[h.ticker] ?? null,
                 mdd3y: mddMap[h.ticker] ?? null,
+                drawdown: ddMap[h.ticker] ?? null,
             }));
 
             return { fund, holdings: enriched, trades, source, note, updatedAt: new Date().toISOString() };

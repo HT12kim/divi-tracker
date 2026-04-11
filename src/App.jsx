@@ -1751,7 +1751,7 @@ function EtfExplorerPage({ onBack }) {
 
     const fetchFund = useCallback(
         async (fund) => {
-            if (data[fund] || loading[fund]) return;
+            if (loading[fund]) return;
             setLoading((p) => ({ ...p, [fund]: true }));
             try {
                 const res = await fetch(`/api/etf-explorer?fund=${encodeURIComponent(fund)}`);
@@ -1764,7 +1764,7 @@ function EtfExplorerPage({ onBack }) {
                 setLoading((p) => ({ ...p, [fund]: false }));
             }
         },
-        [data, loading],
+        [loading],
     );
 
     useEffect(() => {
@@ -1805,9 +1805,9 @@ function EtfExplorerPage({ onBack }) {
                     ← 뒤로
                 </button>
                 <div>
-                    <h1 className="text-base font-bold text-slate-900 dark:text-white">ETF 탐색기</h1>
+                    <h1 className="text-base font-bold text-slate-900 dark:text-white">포트폴리오 엿보기</h1>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
-                        구성종목 · 비중 · 가격 · 3년 MDD · 매매내역
+                        구성종목 · 비중 · 가격 · 3년 MDD · 현재 낙폭 · 매매내역
                     </p>
                 </div>
             </div>
@@ -1817,7 +1817,20 @@ function EtfExplorerPage({ onBack }) {
                 {ETF_FUNDS.map((f) => (
                     <button
                         key={f.id}
-                        onClick={() => setActiveFund(f.id)}
+                        onClick={() => {
+                            if (f.id === activeFund) return;
+                            setData((prev) => {
+                                const n = { ...prev };
+                                delete n[f.id];
+                                return n;
+                            });
+                            setErrors((prev) => {
+                                const n = { ...prev };
+                                delete n[f.id];
+                                return n;
+                            });
+                            setActiveFund(f.id);
+                        }}
                         className={`px-4 py-2 rounded-xl text-sm font-semibold border transition-all
                             ${
                                 activeFund === f.id
@@ -1896,17 +1909,19 @@ function EtfExplorerPage({ onBack }) {
 
                         {/* 모바일 스크롤 가능 테이블 */}
                         <div className="overflow-x-auto">
-                            <table className="w-full min-w-[560px] text-sm">
+                            <table className="w-full min-w-[640px] text-sm">
                                 <thead className="sticky top-0 bg-slate-50/90 dark:bg-slate-800/90 backdrop-blur">
                                     <tr>
-                                        {['#', '종목명', '티커', '비중', '가격(USD)', '3년 MDD'].map((h) => (
-                                            <th
-                                                key={h}
-                                                className="px-3 sm:px-4 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap"
-                                            >
-                                                {h}
-                                            </th>
-                                        ))}
+                                        {['#', '종목명', '티커', '비중', '가격(USD)', '3년 MDD', '현재 낙폭'].map(
+                                            (h) => (
+                                                <th
+                                                    key={h}
+                                                    className="px-3 sm:px-4 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap"
+                                                >
+                                                    {h}
+                                                </th>
+                                            ),
+                                        )}
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -1937,13 +1952,17 @@ function EtfExplorerPage({ onBack }) {
                                             <td className="px-3 sm:px-4 py-2.5 text-xs tabular-nums font-semibold">
                                                 {fmtMdd(h.mdd3y)}
                                             </td>
+                                            <td className="px-3 sm:px-4 py-2.5 text-xs tabular-nums font-semibold">
+                                                {fmtMdd(h.drawdown)}
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </table>
                         </div>
                         <p className="px-4 py-2 text-[10px] text-slate-400 dark:text-slate-600 border-t border-slate-100 dark:border-slate-800">
-                            * 3년 MDD(최대낙폭): 월봉 기준. 상위 15개 종목만 표시. 투자 참고용이며 투자 권유가 아닙니다.
+                            * 3년 MDD(최대낙폭): 월봉 기준, 상위 15개. 현재 낙폭: 52주 고점 대비. 투자 참고용이며 투자
+                            권유가 아닙니다.
                         </p>
                     </div>
 
@@ -2730,7 +2749,7 @@ function DashboardApp() {
                             }`}
                     >
                         <BarChart2 className="w-3.5 h-3.5" />
-                        <span className="hidden sm:inline">ETF 탐색기</span>
+                        <span className="hidden sm:inline">포트폴리오 엿보기</span>
                     </button>
 
                     <button
