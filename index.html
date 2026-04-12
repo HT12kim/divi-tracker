@@ -56,6 +56,25 @@
         <!-- ── 색상 테마 (모바일 브라우저 주소창) ── -->
         <meta name="theme-color" content="#0f172a" />
 
+        <!-- ── JSON-LD 구조화 데이터 – Organization ── -->
+        <script type="application/ld+json">
+            {
+                "@context": "https://schema.org",
+                "@type": "Organization",
+                "name": "배당의 민족",
+                "alternateName": "Dividend Master",
+                "url": "https://divi-tracker.netlify.app/",
+                "logo": {
+                    "@type": "ImageObject",
+                    "url": "https://divi-tracker.netlify.app/divi-tracker.png",
+                    "width": 1200,
+                    "height": 630
+                },
+                "description": "미국·한국 배당주 배당락일, 지급일, 주당배당금(DPS), 배당수익률 실시간 조회 서비스",
+                "inLanguage": "ko"
+            }
+        </script>
+
         <!-- ── JSON-LD 구조화 데이터 – WebApplication ── -->
         <script type="application/ld+json">
             {
@@ -298,14 +317,17 @@
         <link rel="preconnect" href="https://query1.finance.yahoo.com" crossorigin />
         <link rel="preconnect" href="https://open.er-api.com" crossorigin />
         <link rel="preconnect" href="https://www.googletagmanager.com" crossorigin />
+        <link rel="preconnect" href="https://t1.daumcdn.net" crossorigin />
+        <link rel="preconnect" href="https://t1.kakaocdn.net" crossorigin />
 
         <!-- ── Kakao AdFit ── -->
-        <script type="text/javascript" src="//t1.daumcdn.net/kas/static/ba.min.js" async></script>
+        <script type="text/javascript" src="//t1.daumcdn.net/kas/static/ba.min.js" defer></script>
         <!-- ── Kakao 공유 SDK ── -->
         <script
             src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js"
             integrity="sha384-TiCUE00h649CAMonG018J2ujOgDKW/kVWlChEuu4jK2vxfAAD0eZxzCKakxg55G4"
             crossorigin="anonymous"
+            defer
         ></script>
         <script>
             window.addEventListener('load', function () {

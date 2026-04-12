@@ -1722,9 +1722,34 @@ function CapexContainer({ stock, capexData, loading }) {
 // ─────────────────────────────────────────────
 // 13. StockDetailView
 // ─────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// 13-a. StockJsonLd — 종목별 구조화 데이터
+// ─────────────────────────────────────────────
+function StockJsonLd({ stock }) {
+    if (!stock?.ticker) return null;
+    const schema = {
+        '@context': 'https://schema.org',
+        '@type': 'FinancialProduct',
+        name: `${stock.name || stock.ticker} 배당 정보`,
+        description: `${stock.name || stock.ticker}(${stock.ticker})의 배당락일, 주당배당금(DPS), 배당수익률, 지급일 실시간 정보`,
+        url: `https://divi-tracker.netlify.app/?ticker=${stock.ticker}`,
+        provider: {
+            '@type': 'Organization',
+            name: '배당의 민족',
+            url: 'https://divi-tracker.netlify.app/',
+        },
+        ...(stock.dividendYield > 0 && { annualPercentageRate: stock.dividendYield }),
+    };
+    return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />;
+}
+
+// ─────────────────────────────────────────────
+// 13-b. StockDetailView
+// ─────────────────────────────────────────────
 function StockDetailView({ stock, holdingsData, loadingHoldings, capexData, loadingCapex }) {
     return (
         <div className="flex-1 w-full flex flex-col gap-4 min-w-0">
+            <StockJsonLd stock={stock} />
             <StockInfoHeader stock={stock} />
             <DpsBarChart stock={stock} />
             <DividendTimeline stock={stock} />
@@ -2697,6 +2722,32 @@ function DashboardApp() {
         setWatchlist((prev) => prev.filter((s) => s.ticker !== ticker));
         setSelected((prev) => (prev && prev.ticker === ticker ? null : prev));
     }, []);
+
+    // ── 동적 title + meta description ──────────────────────────────────
+    useEffect(() => {
+        const BASE_TITLE = '배당의 민족 – Dividend Master | 배당락일·배당금·배당수익률 실시간 조회';
+        const BASE_DESC =
+            'SCHD·JEPI·JEPQ 등 월배당·분기배당 ETF와 삼성전자 등 한국 배당주의 배당락일, 지급일, 주당배당금(DPS), 세후 배당수익률을 무료로 실시간 조회하세요.';
+        const metaDesc = document.querySelector('meta[name="description"]');
+
+        if (currentPage === 'etf-explorer') {
+            document.title = '포트폴리오 엿보기 – ARKK·버크셔해서웨이 구성종목 | 배당의 민족';
+            metaDesc?.setAttribute(
+                'content',
+                'ARKK·버크셔해서웨이 포트폴리오 구성종목, 비중, 가격, 3년 최대낙폭(MDD), 현재 낙폭을 실시간으로 확인하세요.',
+            );
+        } else if (selected?.ticker) {
+            const name = selected.name || selected.ticker;
+            document.title = `${name}(${selected.ticker}) 배당정보 – 배당의 민족`;
+            metaDesc?.setAttribute(
+                'content',
+                `${name}(${selected.ticker})의 배당락일, 배당금, 배당수익률, 지급일을 실시간으로 조회하세요. 배당의 민족에서 무료 제공`,
+            );
+        } else {
+            document.title = BASE_TITLE;
+            metaDesc?.setAttribute('content', BASE_DESC);
+        }
+    }, [selected, currentPage]);
 
     const rateDisplay = (exchangeRate ?? DEFAULT_EXCHANGE_RATE).toLocaleString();
     const rateSuffix = exchangeRate == null ? ' (기본)' : '';
