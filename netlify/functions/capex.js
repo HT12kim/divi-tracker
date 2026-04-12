@@ -22,7 +22,7 @@ const findCikByTicker = async (ticker) => {
     if (tickerToCikCache[key]) return tickerToCikCache[key];
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
     try {
         const res = await fetch('https://www.sec.gov/files/company_tickers.json', {
             headers: { 'User-Agent': SEC_USER_AGENT },
@@ -66,7 +66,7 @@ const fetchSecCapex = async (ticker) => {
     if (!cik) return { data: null, debugError: `CIK not found for ${ticker}` };
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 20000);
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
     try {
         const res = await fetch(`https://data.sec.gov/api/xbrl/companyfacts/CIK${cik}.json`, {
             headers: { 'User-Agent': SEC_USER_AGENT },

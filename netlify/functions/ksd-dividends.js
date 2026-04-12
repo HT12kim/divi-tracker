@@ -1,5 +1,4 @@
 const KSD_DIVINFO_URL = 'http://api.seibro.or.kr/openapi/service/CorpSvc/getDivInfo';
-const DEFAULT_SERVICE_KEY = '243556297b1ecc0d67d59692a5d44e5ae4bba0cce32f0730e7c4e583b5f8fd07';
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
@@ -28,9 +27,13 @@ export const handler = async (event) => {
         return { statusCode: 400, headers: corsHeaders, body: 'issucoCustno required' };
     }
 
-    const serviceKey = process.env.KSD_SERVICE_KEY || process.env.VITE_KSD_SERVICE_KEY || DEFAULT_SERVICE_KEY;
+    const serviceKey = process.env.KSD_SERVICE_KEY || process.env.VITE_KSD_SERVICE_KEY;
     if (!serviceKey) {
-        return { statusCode: 500, headers: corsHeaders, body: 'KSD service key missing' };
+        return {
+            statusCode: 503,
+            headers: corsHeaders,
+            body: JSON.stringify({ error: 'KSD service key not configured' }),
+        };
     }
 
     const params = new URLSearchParams({

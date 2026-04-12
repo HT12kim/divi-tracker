@@ -1,65 +1,25 @@
-import fs from 'fs';
-import path from 'path';
 import YahooFinance from 'yahoo-finance2';
+import { parseCsvRows, readEucKr, findFile, stockCsvCandidates } from './utils/csv.js';
 
 const yahooFinance = new YahooFinance();
 
-// ── KR 종목명 → 단축코드 매핑 (vite.config.csv 기반) ─────────────────────────
+// ── KR 종목명 → 단축코드 매핑 (vite.config.csv 기반, 모듈 스코프 캐시) ─────
 let nameToCodeMap = null;
 
 const buildNameToCodeMap = () => {
     if (nameToCodeMap) return nameToCodeMap;
-    const candidates = [
-        path.join(process.cwd(), 'vite.config.csv'),
-        path.join(process.cwd(), 'netlify/functions/vite.config.csv'),
-        path.join(process.cwd(), '.netlify/functions/vite.config.csv'),
-    ];
-    let csvPath = null;
-    for (const p of candidates) {
-        try {
-            if (fs.existsSync(p)) {
-                csvPath = p;
-                break;
-            }
-        } catch (_) {}
-    }
+    const csvPath = findFile(stockCsvCandidates());
     if (!csvPath) {
         nameToCodeMap = {};
         return nameToCodeMap;
     }
-    const buf = fs.readFileSync(csvPath);
-    let text;
-    try {
-        text = new TextDecoder('euc-kr').decode(buf);
-    } catch (_) {
-        text = buf.toString('latin1');
-    }
-    const lines = text.split(/\r?\n/);
+    const text = readEucKr(csvPath);
+    const rows = parseCsvRows(text);
     const map = {};
-    for (let i = 1; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (!line) continue;
-        // 간단 따옴표 파서
-        const fields = [];
-        let inQ = false,
-            cur = '';
-        for (let j = 0; j < line.length; j++) {
-            const c = line[j];
-            if (c === '"') {
-                inQ = !inQ;
-                continue;
-            }
-            if (c === ',' && !inQ) {
-                fields.push(cur);
-                cur = '';
-                continue;
-            }
-            cur += c;
-        }
-        fields.push(cur);
-        const code = (fields[1] || '').trim(); // 단축코드
-        const nameShort = (fields[3] || '').trim(); // 한글 종목약명
-        const nameFull = (fields[2] || '').trim(); // 한글 종목명
+    for (const fields of rows) {
+        const code = (fields[1] || '').trim();
+        const nameShort = (fields[3] || '').trim();
+        const nameFull = (fields[2] || '').trim();
         if (code && nameShort) map[nameShort] = code;
         if (code && nameFull) map[nameFull] = code;
     }

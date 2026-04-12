@@ -4,9 +4,12 @@ const yahooFinance = new YahooFinance();
 
 export const handler = async (event) => {
     try {
-        const q = event.queryStringParameters?.q;
+        const q = (event.queryStringParameters?.q || '').trim();
         if (!q) {
             return { statusCode: 400, body: JSON.stringify({ error: 'q required' }) };
+        }
+        if (q.length > 100) {
+            return { statusCode: 400, body: JSON.stringify({ error: 'q too long (max 100)' }) };
         }
         const region = event.queryStringParameters?.region || 'KR';
         const lang = event.queryStringParameters?.lang || 'ko-KR';

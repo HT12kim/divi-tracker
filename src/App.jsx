@@ -77,6 +77,8 @@ const nextExDate = (stock) => {
     return futures[0] || null;
 };
 
+const FREQ_LABEL = { monthly: '월배당', quarterly: '분기', semiannual: '반기', annual: '연 1회', none: '비배당주' };
+
 // ─────────────────────────────────────────────
 // 4. 테마 컨텍스트
 // ─────────────────────────────────────────────
@@ -329,14 +331,6 @@ function SearchBar({ onSelect, onFetch, liveCache, krStocks, krEtfs, krDataReady
         setOpen(false);
     };
 
-    const freqLabel = {
-        monthly: '월배당',
-        quarterly: '분기',
-        semiannual: '반기',
-        annual: '연 1회',
-        none: '비배당주',
-    };
-
     // 한글 입력 시: krDataReady가 false면 아직 CSV 로딩 중
     const isKrDataLoading = isKoreanQuery && isLocalSearch && !krDataReady;
     const hasDropdown =
@@ -353,6 +347,9 @@ function SearchBar({ onSelect, onFetch, liveCache, krStocks, krEtfs, krDataReady
                 <input
                     type="text"
                     value={query}
+                    aria-label="배당주 티커 검색"
+                    aria-expanded={hasDropdown}
+                    aria-autocomplete="list"
                     placeholder="티커 또는 종목명 검색  (예: SCHD, 삼성전자)"
                     className="flex-1 bg-transparent text-base sm:text-sm text-slate-800 dark:text-slate-200
                     placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none"
@@ -417,7 +414,7 @@ function SearchBar({ onSelect, onFetch, liveCache, krStocks, krEtfs, krDataReady
                             !isSuggestion && typeof s.dividendYield === 'number'
                                 ? s.dividendYield.toFixed(2) + '%'
                                 : '—';
-                        const freqText = isSuggestion ? s.quoteType || '검색 결과' : freqLabel[s.frequency] || '—';
+                        const freqText = isSuggestion ? s.quoteType || '검색 결과' : FREQ_LABEL[s.frequency] || '—';
                         return (
                             <button
                                 key={s.ticker}
@@ -488,7 +485,7 @@ function SearchBar({ onSelect, onFetch, liveCache, krStocks, krEtfs, krDataReady
 // 6. WatchlistPanel
 // ─────────────────────────────────────────────
 function WatchlistPanel({ watchlist, selected, onSelect, onRemove }) {
-    const freqLabel = { monthly: '월배당', quarterly: '분기', semiannual: '반기', annual: '연 1회', none: '비배당주' };
+    // ...
 
     if (watchlist.length === 0) {
         return (
@@ -525,6 +522,14 @@ function WatchlistPanel({ watchlist, selected, onSelect, onRemove }) {
                     return (
                         <div
                             key={s.ticker}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    onSelect(s);
+                                }
+                            }}
                             className={
                                 'group relative rounded-xl p-3 cursor-pointer border transition-all bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl shadow-lg shadow-black/5 ' +
                                 (isActive
@@ -580,7 +585,7 @@ function WatchlistPanel({ watchlist, selected, onSelect, onRemove }) {
                                             : 'text-slate-500 dark:text-slate-400')
                                     }
                                 >
-                                    {freqLabel[s.frequency]}
+                                    {FREQ_LABEL[s.frequency]}
                                 </span>
                                 <span
                                     className={
@@ -1024,6 +1029,28 @@ function DividendTable({ stock }) {
 // ─────────────────────────────────────────────
 // 11. DpsBarChart
 // ─────────────────────────────────────────────
+function DpsBarChartTooltip({
+    active,
+    payload,
+    label,
+    tooltipBg,
+    tooltipBorder,
+    tooltipText,
+    tooltipSubText,
+    currency,
+}) {
+    if (!active || !payload || !payload.length) return null;
+    return (
+        <div
+            className="rounded-xl shadow-lg p-3 text-xs"
+            style={{ background: tooltipBg, border: '1px solid ' + tooltipBorder, color: tooltipText }}
+        >
+            <p className="font-semibold mb-1">{label}</p>
+            <p style={{ color: tooltipSubText }}>세후: {fmtNum(payload[0] && payload[0].value, currency)}</p>
+        </div>
+    );
+}
+
 function DpsBarChart({ stock }) {
     const { dark } = useTheme();
     const axisColor = dark ? '#94a3b8' : '#64748b';
@@ -1040,19 +1067,6 @@ function DpsBarChart({ stock }) {
         label: `${i + 1}회 (${parseDate(ev.exDate).getFullYear()})`,
         net: parseFloat((ev.dps * (1 - stock.taxRate)).toFixed(4)),
     }));
-
-    const CustomTooltip = ({ active, payload, label }) => {
-        if (!active || !payload || !payload.length) return null;
-        return (
-            <div
-                className="rounded-xl shadow-lg p-3 text-xs"
-                style={{ background: tooltipBg, border: '1px solid ' + tooltipBorder, color: tooltipText }}
-            >
-                <p className="font-semibold mb-1">{label}</p>
-                <p style={{ color: tooltipSubText }}>세후: {fmtNum(payload[0] && payload[0].value, stock.currency)}</p>
-            </div>
-        );
-    };
 
     return (
         <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 p-5 shadow-xl">
@@ -1072,7 +1086,15 @@ function DpsBarChart({ stock }) {
                         width={65}
                     />
                     <Tooltip
-                        content={<CustomTooltip />}
+                        content={
+                            <DpsBarChartTooltip
+                                tooltipBg={tooltipBg}
+                                tooltipBorder={tooltipBorder}
+                                tooltipText={tooltipText}
+                                tooltipSubText={tooltipSubText}
+                                currency={stock.currency}
+                            />
+                        }
                         cursor={{ stroke: dark ? '#94a3b8' : '#94a3b8', strokeDasharray: '3 3' }}
                     />
                     <Line
@@ -1407,7 +1429,12 @@ function FaqSection() {
 // ─────────────────────────────────────────────
 function LoadingSkeleton({ symbol }) {
     return (
-        <div className="flex-1 w-full flex flex-col gap-4 min-w-0 animate-pulse">
+        <div
+            role="status"
+            aria-live="polite"
+            aria-label={`${symbol} 로딩 중`}
+            className="flex-1 w-full flex flex-col gap-4 min-w-0 animate-pulse"
+        >
             {/* Header skeleton */}
             <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/60 p-4 sm:p-5 shadow-xl">
                 <div className="flex items-center gap-3">
@@ -2231,6 +2258,7 @@ function DashboardApp() {
     const cachedAtLoadRef = useRef({});
     const hydratedRef = useRef(false);
     const deepLinkLoadedRef = useRef(false);
+    const fetchAbortRef = useRef(null);
 
     const [watchlist, setWatchlist] = useState(() => {
         try {
@@ -2727,10 +2755,15 @@ function DashboardApp() {
         async (symbolInput) => {
             const symbol = symbolInput.trim();
             if (!symbol) return;
+            // 이전 진행 중인 fetch 취소 (race condition 방지)
+            if (fetchAbortRef.current) fetchAbortRef.current.abort();
+            const controller = new AbortController();
+            fetchAbortRef.current = controller;
             setLoadingSymbol(symbol);
             try {
                 // fetchLiveStock과 fetchExchangeRate를 병렬 실행
                 const [stock] = await Promise.all([fetchLiveStock(symbol), fetchExchangeRate()]);
+                if (controller.signal.aborted) return;
                 if (!stock) return;
                 setLiveCache((prev) => ({ ...prev, [stock.ticker]: stock }));
                 setWatchlist((prev) => {
@@ -2740,10 +2773,11 @@ function DashboardApp() {
                 });
                 setSelected(stock);
             } catch (err) {
+                if (controller.signal.aborted) return;
                 console.error(err);
                 alert('실시간 조회 실패: ' + err.message);
             } finally {
-                setLoadingSymbol(null);
+                if (!controller.signal.aborted) setLoadingSymbol(null);
             }
         },
         [fetchLiveStock, fetchExchangeRate],
