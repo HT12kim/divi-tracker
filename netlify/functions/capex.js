@@ -165,10 +165,14 @@ const CAPEX_KR_PATTERNS = [
     /유형자산의\s*취득/,
     /유형자산\s*취득/,
     /유형자산.*취득/,
+    /유형자산\s*(및|과)\s*무형자산.*취득/,
+    /투자활동.*유형/,
     /설비투자/,
     /자본적\s*지출/,
     /기계장치.*취득/,
     /시설자산.*취득/,
+    /토지.*건물.*취득/,
+    /건설중.*자산.*증가/,
 ];
 
 // DART는 현금유출을 (47,645,000) 괄호 표기로 반환하는 경우가 있어 parseInt가 NaN을 반환함
@@ -204,47 +208,68 @@ const fetchDartCapex = async (stockCode) => {
         };
     }
 
-    // 최근 2개 사업보고서를 병렬로 조회: 각 보고서에 당기+전기+전전기 포함 → 최대 5-6년치
+    // 최근 3개 연도 사업보고서를 병렬로 조회: 각 보고서에 당기+전기+전전기 포함 → 최대 5-6년치
     const currentYear = new Date().getFullYear();
-    const yearsToFetch = [currentYear - 1, currentYear - 2];
+    const yearsToFetch = [currentYear, currentYear - 1, currentYear - 2];
     const byYear = {};
     const debugErrors = [];
 
-    // CFS(연결) → OFS(개별) 순으로 폴백: 연결재무제표 없는 기업도 처리
+    // reprt_code: 11011=사업보고서, 11014=3Q, 11012=반기, 11013=1Q
+    const REPRT_CODES = ['11011', '11014'];
+
+    // CFS(연결) → OFS(개별) × 사업보고서 → 3분기보고서 순으로 폴백
     const fetchOneYear = async (yr) => {
         const attemptErrors = [];
-        for (const fsDiv of ['CFS', 'OFS']) {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 3500);
-            try {
-                const url = `https://opendart.fss.or.kr/api/fnlttSinglAcntAll.json?crtfc_key=${DART_API_KEY}&corp_code=${corpCode}&bsns_year=${yr}&reprt_code=11011&fs_div=${fsDiv}`;
-                const res = await fetch(url, { signal: controller.signal });
-                clearTimeout(timeoutId);
-                const json = await res.json();
-                if (json.status !== '000') {
-                    attemptErrors.push(`${fsDiv}:${json.status}`);
-                    continue;
+        for (const reprtCode of REPRT_CODES) {
+            for (const fsDiv of ['CFS', 'OFS']) {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000);
+                try {
+                    const url = `https://opendart.fss.or.kr/api/fnlttSinglAcntAll.json?crtfc_key=${DART_API_KEY}&corp_code=${corpCode}&bsns_year=${yr}&reprt_code=${reprtCode}&fs_div=${fsDiv}`;
+                    const res = await fetch(url, { signal: controller.signal });
+                    clearTimeout(timeoutId);
+                    const json = await res.json();
+                    if (json.status !== '000') {
+                        attemptErrors.push(`${fsDiv}/${reprtCode}:${json.status}`);
+                        continue;
+                    }
+                    const cfItems = (json.list || []).filter((i) => i.sj_div === 'CF');
+                    let capexItem = null;
+                    for (const pattern of CAPEX_KR_PATTERNS) {
+                        capexItem = cfItems.find((i) => pattern.test(i.account_nm));
+                        if (capexItem) break;
+                    }
+                    // 폴백: 패턴 미매칭 시, CF 항목 중 '취득' 포함 + 음수(현금유출) 중 절대값 최대 자동 선택
+                    if (!capexItem) {
+                        const candidates = cfItems.filter((i) => {
+                            if (!/취득/.test(i.account_nm)) return false;
+                            const val = parseKrAmount(i.thstrm_amount);
+                            return val != null && val < 0;
+                        });
+                        if (candidates.length > 0) {
+                            candidates.sort((a, b) => {
+                                const va = Math.abs(parseKrAmount(a.thstrm_amount) || 0);
+                                const vb = Math.abs(parseKrAmount(b.thstrm_amount) || 0);
+                                return vb - va;
+                            });
+                            capexItem = candidates[0];
+                            attemptErrors.push(`${fsDiv}/${reprtCode}:fallback_match(${capexItem.account_nm})`);
+                        }
+                    }
+                    if (!capexItem) {
+                        const allNames = cfItems.map((i) => i.account_nm).join('|');
+                        attemptErrors.push(
+                            `${fsDiv}/${reprtCode}:no_match(${cfItems.length}items,names:${allNames.slice(0, 300)})`,
+                        );
+                        continue;
+                    }
+                    return { yr, error: null, capexItem };
+                } catch (e) {
+                    clearTimeout(timeoutId);
+                    attemptErrors.push(`${fsDiv}/${reprtCode}:${e.message}`);
                 }
-                const cfItems = (json.list || []).filter((i) => i.sj_div === 'CF');
-                let capexItem = null;
-                for (const pattern of CAPEX_KR_PATTERNS) {
-                    capexItem = cfItems.find((i) => pattern.test(i.account_nm));
-                    if (capexItem) break;
-                }
-                if (!capexItem) {
-                    const sampleNames = cfItems
-                        .slice(0, 6)
-                        .map((i) => i.account_nm)
-                        .join('|');
-                    attemptErrors.push(`${fsDiv}:no_match(${cfItems.length}items,sample:${sampleNames})`);
-                    continue;
-                }
-                return { yr, error: null, capexItem };
-            } catch (e) {
-                clearTimeout(timeoutId);
-                attemptErrors.push(`${fsDiv}:${e.message}`);
-                // CFS 타임아웃/오류 시 OFS 시도
             }
+            // 사업보고서에서 CFS/OFS 모두 실패 시 3분기보고서 시도
         }
         return { yr, error: attemptErrors.join(' || '), capexItem: null };
     };
@@ -275,10 +300,13 @@ const fetchDartCapex = async (stockCode) => {
     }
 
     // DART는 회사 재무제표 표시 단위를 그대로 반환 (대기업: 백만원, 중소기업: 원 등)
-    // 최대 절대값이 1e9(10억) 미만이면 백만원 단위로 판단하여 1,000,000 곱해 원으로 변환
+    // maxRaw < 1e4 → 조원 단위 (× 1e12),  maxRaw < 1e9 → 백만원 단위 (× 1e6), else 원 단위
     const rawValues = Object.values(byYear).map((v) => Math.abs(v));
     const maxRaw = Math.max(...rawValues);
-    const scaleToWon = maxRaw > 0 && maxRaw < 1_000_000_000 ? 1_000_000 : 1;
+    let scaleToWon = 1;
+    if (maxRaw > 0 && maxRaw < 1e4)
+        scaleToWon = 1_000_000_000_000; // 조원 단위
+    else if (maxRaw > 0 && maxRaw < 1_000_000_000) scaleToWon = 1_000_000; // 백만원 단위
 
     const annual = Object.entries(byYear)
         .map(([year, amount]) => {
@@ -305,7 +333,7 @@ const fetchDartCapex = async (stockCode) => {
 };
 
 // ── Netlify Handler ────────────────────────────────────────────────────────
-const HANDLER_TIMEOUT_MS = 8000; // Netlify Free 10초 제한 → 8초 안전장치
+const HANDLER_TIMEOUT_MS = 9200; // Netlify Free 10초 제한 → 9.2초 안전장치
 
 export const handler = async (event) => {
     const params = event.queryStringParameters || {};

@@ -1402,6 +1402,54 @@ function FaqSection() {
 }
 
 // ─────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// 12-b. LoadingSkeleton – 티커 로딩 중 표시
+// ─────────────────────────────────────────────
+function LoadingSkeleton({ symbol }) {
+    return (
+        <div className="flex-1 w-full flex flex-col gap-4 min-w-0 animate-pulse">
+            {/* Header skeleton */}
+            <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/60 p-4 sm:p-5 shadow-xl">
+                <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-slate-200 dark:bg-slate-700" />
+                    <div className="flex-1 space-y-2">
+                        <div className="h-5 w-24 rounded bg-slate-200 dark:bg-slate-700" />
+                        <div className="h-3 w-40 rounded bg-slate-200 dark:bg-slate-700" />
+                    </div>
+                </div>
+                <div className="flex gap-2 mt-4">
+                    {[1, 2, 3].map((i) => (
+                        <div key={i} className="h-12 flex-1 rounded-xl bg-slate-200 dark:bg-slate-700" />
+                    ))}
+                </div>
+            </div>
+            {/* Chart skeleton */}
+            <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/60 p-4 sm:p-5 shadow-xl">
+                <div className="h-4 w-32 rounded bg-slate-200 dark:bg-slate-700 mb-3" />
+                <div className="h-[180px] rounded-lg bg-slate-200 dark:bg-slate-700" />
+            </div>
+            {/* Timeline skeleton */}
+            <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/60 p-4 sm:p-5 shadow-xl">
+                <div className="h-4 w-48 rounded bg-slate-200 dark:bg-slate-700 mb-3" />
+                <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-12 gap-1.5">
+                    {Array.from({ length: 12 }, (_, i) => (
+                        <div key={i} className="h-16 rounded-xl bg-slate-200 dark:bg-slate-700" />
+                    ))}
+                </div>
+            </div>
+            {/* Loading text */}
+            <div className="flex items-center justify-center gap-2 py-4">
+                <svg className="animate-spin h-4 w-4 text-indigo-500" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                <span className="text-sm text-slate-500 dark:text-slate-400">{symbol} 배당 정보를 불러오는 중…</span>
+            </div>
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────
 // 13. EmptyState
 // ─────────────────────────────────────────────
 function EmptyState({ onPickTicker }) {
@@ -2968,6 +3016,8 @@ function DashboardApp() {
                                     capexData={capexData[selected.ticker]}
                                     loadingCapex={loadingCapex}
                                 />
+                            ) : loadingSymbol ? (
+                                <LoadingSkeleton symbol={loadingSymbol} />
                             ) : (
                                 <div className="flex-1">
                                     <EmptyState onPickTicker={handleFetchLive} />
