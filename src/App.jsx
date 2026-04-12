@@ -1813,6 +1813,8 @@ function CapexContainer({ stock, capexData, loading }) {
                                     fontSize: '12px',
                                     color: dark ? '#e2e8f0' : '#1e293b',
                                 }}
+                                labelStyle={{ color: dark ? '#cbd5e1' : '#1e293b' }}
+                                itemStyle={{ color: dark ? '#f1f5f9' : '#1e293b' }}
                                 formatter={(value, name) => {
                                     if (name === 'amount') return [formatAmount(value), 'CAPEX'];
                                     return [value, name];
