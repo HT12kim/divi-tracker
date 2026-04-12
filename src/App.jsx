@@ -2936,7 +2936,7 @@ function DashboardApp() {
                 className="sticky top-0 z-40 bg-white/60 dark:bg-slate-900/50 backdrop-blur-xl
             border-b border-slate-200/80 dark:border-slate-800/60 shadow-lg"
             >
-                <div className="max-w-screen-lg w-full mx-auto px-3 sm:px-6 py-2.5 flex items-center gap-3 sm:gap-4">
+                <div className="max-w-screen-lg w-full mx-auto px-3 sm:px-6 py-1.5 sm:py-2.5 flex flex-wrap sm:flex-nowrap items-center gap-x-2.5 gap-y-2 sm:gap-4">
                     <div
                         className="flex items-center gap-2.5 flex-shrink-0 cursor-pointer select-none"
                         onClick={() => window.location.reload()}
@@ -2950,7 +2950,40 @@ function DashboardApp() {
                         </div>
                     </div>
 
-                    <div className="flex-1 flex justify-center">
+                    {/* 버튼 그룹 — 모바일에서 로고와 같은 행 오른쪽 정렬 */}
+                    <div className="flex items-center gap-2 ml-auto sm:ml-0 flex-shrink-0">
+                        {/* ETF 탐색기 탭 버튼 */}
+                        <button
+                            onClick={() => setCurrentPage(currentPage === 'etf-explorer' ? 'main' : 'etf-explorer')}
+                            className={`flex items-center gap-1.5 px-2.5 py-2 sm:px-3 rounded-lg text-xs font-medium
+                                border transition-colors shadow-sm
+                                ${
+                                    currentPage === 'etf-explorer'
+                                        ? 'bg-indigo-600 border-indigo-500 text-white hover:bg-indigo-700'
+                                        : 'bg-white/70 dark:bg-slate-900/70 backdrop-blur border-white/60 dark:border-slate-800/70 text-slate-700 dark:text-slate-300 hover:bg-indigo-50/80 dark:hover:bg-slate-800'
+                                }`}
+                        >
+                            <BarChart2 className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">포트폴리오 엿보기</span>
+                        </button>
+
+                        <button
+                            onClick={toggle}
+                            className="flex items-center gap-1.5 px-2.5 py-2 sm:px-3 rounded-lg text-xs font-medium
+                      bg-white/70 dark:bg-slate-900/70 backdrop-blur border border-white/60 dark:border-slate-800/70 text-slate-700 dark:text-slate-300
+                      hover:bg-orange-50/80 dark:hover:bg-slate-800 transition-colors shadow-sm"
+                        >
+                            {dark ? (
+                                <Sun className="w-3.5 h-3.5 text-amber-400" />
+                            ) : (
+                                <Moon className="w-3.5 h-3.5 text-indigo-400" />
+                            )}
+                            <span className="hidden sm:inline">{dark ? '라이트' : '다크'}</span>
+                        </button>
+                    </div>
+
+                    {/* 검색창 — 모바일에서 두 번째 행 전체 너비 */}
+                    <div className="order-last sm:order-none w-full sm:flex-1 sm:flex sm:justify-center">
                         <SearchBar
                             onSelect={handleSearch}
                             onFetch={handleFetchLive}
@@ -2960,35 +2993,6 @@ function DashboardApp() {
                             krDataReady={krDataReady}
                         />
                     </div>
-
-                    {/* ETF 탐색기 탭 버튼 */}
-                    <button
-                        onClick={() => setCurrentPage(currentPage === 'etf-explorer' ? 'main' : 'etf-explorer')}
-                        className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium
-                            border transition-colors shadow-sm
-                            ${
-                                currentPage === 'etf-explorer'
-                                    ? 'bg-indigo-600 border-indigo-500 text-white hover:bg-indigo-700'
-                                    : 'bg-white/70 dark:bg-slate-900/70 backdrop-blur border-white/60 dark:border-slate-800/70 text-slate-700 dark:text-slate-300 hover:bg-indigo-50/80 dark:hover:bg-slate-800'
-                            }`}
-                    >
-                        <BarChart2 className="w-3.5 h-3.5" />
-                        <span className="hidden sm:inline">포트폴리오 엿보기</span>
-                    </button>
-
-                    <button
-                        onClick={toggle}
-                        className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium
-                  bg-white/70 dark:bg-slate-900/70 backdrop-blur border border-white/60 dark:border-slate-800/70 text-slate-700 dark:text-slate-300
-                  hover:bg-orange-50/80 dark:hover:bg-slate-800 transition-colors shadow-sm"
-                    >
-                        {dark ? (
-                            <Sun className="w-3.5 h-3.5 text-amber-400" />
-                        ) : (
-                            <Moon className="w-3.5 h-3.5 text-indigo-400" />
-                        )}
-                        <span className="hidden sm:inline">{dark ? '라이트' : '다크'}</span>
-                    </button>
                 </div>
             </header>
 
