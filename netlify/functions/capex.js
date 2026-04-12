@@ -161,13 +161,27 @@ const formatUSD = (val) => {
 
 // ── DART: 종목코드 → corp_code → 재무제표 CAPEX ────────────────────────────
 
-const CAPEX_KR_PATTERNS = [/유형자산의\s*취득/, /유형자산\s*취득/, /설비투자/, /자본적\s*지출/];
+const CAPEX_KR_PATTERNS = [
+    /유형자산의\s*취득/,
+    /유형자산\s*취득/,
+    /유형자산.*취득/,
+    /설비투자/,
+    /자본적\s*지출/,
+    /기계장치.*취득/,
+    /시설자산.*취득/,
+];
 
+// DART는 현금유출을 (47,645,000) 괄호 표기로 반환하는 경우가 있어 parseInt가 NaN을 반환함
+// Number()를 사용하고 괄호 음수 표기를 명시적으로 처리
 const parseKrAmount = (s) => {
-    if (!s) return null;
-    const cleaned = s.replace(/,/g, '').trim();
-    const n = parseInt(cleaned, 10);
-    return isNaN(n) ? null : n;
+    if (s == null || s === '' || s === '-') return null;
+    let cleaned = String(s).replace(/,/g, '').trim();
+    // 한국 회계 괄호 음수 표기: (47645000) → -47645000
+    if (cleaned.startsWith('(') && cleaned.endsWith(')')) {
+        cleaned = '-' + cleaned.slice(1, -1).trim();
+    }
+    const n = Number(cleaned);
+    return isNaN(n) || cleaned === '' ? null : n;
 };
 
 const formatKRW = (val) => {
@@ -196,28 +210,43 @@ const fetchDartCapex = async (stockCode) => {
     const byYear = {};
     const debugErrors = [];
 
+    // CFS(연결) → OFS(개별) 순으로 폴백: 연결재무제표 없는 기업도 처리
     const fetchOneYear = async (yr) => {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 6000);
-        try {
-            const url = `https://opendart.fss.or.kr/api/fnlttSinglAcntAll.json?crtfc_key=${DART_API_KEY}&corp_code=${corpCode}&bsns_year=${yr}&reprt_code=11011&fs_div=CFS`;
-            const res = await fetch(url, { signal: controller.signal });
-            clearTimeout(timeoutId);
-            const json = await res.json();
-            if (json.status !== '000') {
-                return { yr, error: `${json.status} ${json.message}`, capexItem: null };
+        const attemptErrors = [];
+        for (const fsDiv of ['CFS', 'OFS']) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3500);
+            try {
+                const url = `https://opendart.fss.or.kr/api/fnlttSinglAcntAll.json?crtfc_key=${DART_API_KEY}&corp_code=${corpCode}&bsns_year=${yr}&reprt_code=11011&fs_div=${fsDiv}`;
+                const res = await fetch(url, { signal: controller.signal });
+                clearTimeout(timeoutId);
+                const json = await res.json();
+                if (json.status !== '000') {
+                    attemptErrors.push(`${fsDiv}:${json.status}`);
+                    continue;
+                }
+                const cfItems = (json.list || []).filter((i) => i.sj_div === 'CF');
+                let capexItem = null;
+                for (const pattern of CAPEX_KR_PATTERNS) {
+                    capexItem = cfItems.find((i) => pattern.test(i.account_nm));
+                    if (capexItem) break;
+                }
+                if (!capexItem) {
+                    const sampleNames = cfItems
+                        .slice(0, 6)
+                        .map((i) => i.account_nm)
+                        .join('|');
+                    attemptErrors.push(`${fsDiv}:no_match(${cfItems.length}items,sample:${sampleNames})`);
+                    continue;
+                }
+                return { yr, error: null, capexItem };
+            } catch (e) {
+                clearTimeout(timeoutId);
+                attemptErrors.push(`${fsDiv}:${e.message}`);
+                // CFS 타임아웃/오류 시 OFS 시도
             }
-            const cfItems = (json.list || []).filter((i) => i.sj_div === 'CF');
-            let capexItem = null;
-            for (const pattern of CAPEX_KR_PATTERNS) {
-                capexItem = cfItems.find((i) => pattern.test(i.account_nm));
-                if (capexItem) break;
-            }
-            return { yr, error: capexItem ? null : `CAPEX not found in CF (${cfItems.length} items)`, capexItem };
-        } catch (e) {
-            clearTimeout(timeoutId);
-            return { yr, error: e.message, capexItem: null };
         }
+        return { yr, error: attemptErrors.join(' || '), capexItem: null };
     };
 
     // 병렬 실행: 순차 2회 → 동시 1회 대기
@@ -245,12 +274,21 @@ const fetchDartCapex = async (stockCode) => {
         return { data: null, debugError: debugErrors.join(' || ') };
     }
 
+    // DART는 회사 재무제표 표시 단위를 그대로 반환 (대기업: 백만원, 중소기업: 원 등)
+    // 최대 절대값이 1e9(10억) 미만이면 백만원 단위로 판단하여 1,000,000 곱해 원으로 변환
+    const rawValues = Object.values(byYear).map((v) => Math.abs(v));
+    const maxRaw = Math.max(...rawValues);
+    const scaleToWon = maxRaw > 0 && maxRaw < 1_000_000_000 ? 1_000_000 : 1;
+
     const annual = Object.entries(byYear)
-        .map(([year, amount]) => ({
-            year: Number(year),
-            amount: Math.abs(amount), // CAPEX는 현금유출이므로 음수일 수 있음 → 절대값
-            amountFormatted: formatKRW(Math.abs(amount)),
-        }))
+        .map(([year, amount]) => {
+            const absAmount = Math.abs(amount) * scaleToWon;
+            return {
+                year: Number(year),
+                amount: absAmount,
+                amountFormatted: formatKRW(absAmount),
+            };
+        })
         .sort((a, b) => a.year - b.year);
 
     return {
