@@ -713,16 +713,22 @@ function StockInfoHeader({ stock }) {
                             highlight="emerald"
                         />
                         <MetricChip
-                            label="연간 DPS (세전)"
-                            value={fmtNum(stock.annualDPS, stock.currency)}
+                            label="연간 DPS (세후)"
+                            value={fmtNum(stock.annualDPS * (1 - (stock.taxRate ?? 0)), stock.currency)}
                             icon={<BarChart2 className="w-3.5 h-3.5" />}
                         />
-                        {/* <MetricChip
-                            label="세율"
-                            value={(stock.taxRate * 100).toFixed(1) + '%'}
-                            icon={<Info className="w-3.5 h-3.5" />}
-                            highlight="amber"
-                        /> */}
+                        {(() => {
+                            const latest = stock.events?.length
+                                ? [...stock.events].sort((a, b) => new Date(b.exDate) - new Date(a.exDate))[0]
+                                : null;
+                            return latest ? (
+                                <MetricChip
+                                    label="최근회차 배당금"
+                                    value={fmtNum(latest.dps, stock.currency)}
+                                    icon={<CalendarDays className="w-3.5 h-3.5" />}
+                                />
+                            ) : null;
+                        })()}
                     </div>
                 </div>
                 <p className="mt-3 text-xs text-slate-500 dark:text-slate-400 leading-relaxed border-t border-slate-100 dark:border-slate-700 pt-3">
