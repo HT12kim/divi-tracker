@@ -20,7 +20,6 @@ import {
     AlertCircle,
     Factory,
     Share2,
-    Camera,
 } from 'lucide-react';
 import {
     LineChart,
@@ -619,9 +618,6 @@ function WatchlistPanel({ watchlist, selected, onSelect, onRemove }) {
 // 7. StockInfoHeader
 // ─────────────────────────────────────────────
 function StockInfoHeader({ stock }) {
-    const cardRef = useRef(null);
-    const [capturing, setCapturing] = useState(false);
-
     const shareUrl = `https://divi-tracker.netlify.app/?ticker=${encodeURIComponent(stock.ticker)}`;
     const name = stock.displayName || stock.name || stock.ticker;
     const yieldStr = stock.dividendYield ? stock.dividendYield.toFixed(2) + '%' : '';
@@ -640,36 +636,9 @@ function StockInfoHeader({ stock }) {
         window.open(threadsUrl, '_blank', 'noopener,noreferrer');
     };
 
-    const handleCapture = async () => {
-        if (!cardRef.current || capturing) return;
-        setCapturing(true);
-        try {
-            const html2canvas = (await import('html2canvas')).default;
-            const canvas = await html2canvas(cardRef.current, { scale: 2, useCORS: true });
-            const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
-            const file = new File([blob], `${stock.ticker}-배당.png`, { type: 'image/png' });
-            if (navigator.canShare?.({ files: [file] })) {
-                await navigator.share({ files: [file] });
-            } else {
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(blob);
-                a.download = file.name;
-                a.click();
-                URL.revokeObjectURL(a.href);
-            }
-        } catch (e) {
-            console.error('capture failed', e);
-        } finally {
-            setCapturing(false);
-        }
-    };
-
     return (
         <div>
-            <div
-                ref={cardRef}
-                className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/60 p-4 sm:p-5 shadow-2xl shadow-black/10"
-            >
+            <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/60 p-4 sm:p-5 shadow-2xl shadow-black/10">
                 <div className="flex flex-wrap items-start gap-x-4 sm:gap-x-6 gap-y-2">
                     <div className="flex items-center gap-3 min-w-0">
                         <div
@@ -760,17 +729,6 @@ function StockInfoHeader({ stock }) {
                     </svg>
                     Threads
                 </a>
-                <button
-                    onClick={handleCapture}
-                    disabled={capturing}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold
-                        bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700
-                        text-slate-700 dark:text-slate-200
-                        shadow-sm transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-wait"
-                >
-                    <Camera className="w-3.5 h-3.5" />
-                    {capturing ? '캡처 중…' : '이미지 저장'}
-                </button>
             </div>
         </div>
     );
