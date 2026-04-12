@@ -19,6 +19,8 @@ import {
     BookmarkPlus,
     AlertCircle,
     Factory,
+    Share2,
+    Camera,
 } from 'lucide-react';
 import {
     LineChart,
@@ -617,66 +619,153 @@ function WatchlistPanel({ watchlist, selected, onSelect, onRemove }) {
 // 7. StockInfoHeader
 // ─────────────────────────────────────────────
 function StockInfoHeader({ stock }) {
-    return (
-        <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/60 p-4 sm:p-5 shadow-2xl shadow-black/10">
-            <div className="flex flex-wrap items-start gap-x-4 sm:gap-x-6 gap-y-2">
-                <div className="flex items-center gap-3 min-w-0">
-                    <div
-                        className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600
-            flex items-center justify-center shadow-md flex-shrink-0"
-                    >
-                        <span className="text-white text-sm font-black">{stock.ticker.slice(0, 2)}</span>
-                    </div>
-                    <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                            <h1 className="text-xl font-black text-slate-900 dark:text-white">{stock.ticker}</h1>
-                            <span
-                                className={
-                                    'px-2 py-0.5 rounded-full text-xs font-semibold ' +
-                                    (stock.country === 'US'
-                                        ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
-                                        : 'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300')
-                                }
-                            >
-                                {stock.country === 'US' ? '🇺🇸 미국' : '🇰🇷 한국'}
-                            </span>
-                            <FreqBadge freq={stock.frequency} />
-                        </div>
-                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-                            {stock.displayName || stock.name}
-                        </p>
-                        <p className="text-xs text-slate-400 dark:text-slate-500">{stock.sector}</p>
-                    </div>
-                </div>
+    const cardRef = useRef(null);
+    const [capturing, setCapturing] = useState(false);
 
-                <div className="flex flex-wrap gap-2 sm:gap-3 ml-auto">
-                    <MetricChip
-                        label="현재가"
-                        value={fmtNum(stock.currentPrice, stock.currency)}
-                        icon={<DollarSign className="w-3.5 h-3.5" />}
-                    />
-                    <MetricChip
-                        label="배당수익률 (연)"
-                        value={stock.dividendYield.toFixed(2) + '%'}
-                        icon={<Percent className="w-3.5 h-3.5" />}
-                        highlight="emerald"
-                    />
-                    <MetricChip
-                        label="연간 DPS (세전)"
-                        value={fmtNum(stock.annualDPS, stock.currency)}
-                        icon={<BarChart2 className="w-3.5 h-3.5" />}
-                    />
-                    {/* <MetricChip
-                        label="세율"
-                        value={(stock.taxRate * 100).toFixed(1) + '%'}
-                        icon={<Info className="w-3.5 h-3.5" />}
-                        highlight="amber"
-                    /> */}
+    const shareUrl = `https://divi-tracker.netlify.app/?ticker=${encodeURIComponent(stock.ticker)}`;
+    const name = stock.displayName || stock.name || stock.ticker;
+    const yieldStr = stock.dividendYield ? stock.dividendYield.toFixed(2) + '%' : '';
+    const shareText = `${name}(${stock.ticker}) 배당수익률 ${yieldStr}\n배당락일·배당금 실시간 조회 👇`;
+    const threadsUrl = `https://www.threads.net/intent/post?text=${encodeURIComponent(shareText + '\n' + shareUrl)}`;
+
+    const handleShare = async () => {
+        if (navigator.share) {
+            try {
+                await navigator.share({ title: `${stock.ticker} 배당 정보`, text: shareText, url: shareUrl });
+                return;
+            } catch (e) {
+                if (e.name === 'AbortError') return;
+            }
+        }
+        window.open(threadsUrl, '_blank', 'noopener,noreferrer');
+    };
+
+    const handleCapture = async () => {
+        if (!cardRef.current || capturing) return;
+        setCapturing(true);
+        try {
+            const html2canvas = (await import('html2canvas')).default;
+            const canvas = await html2canvas(cardRef.current, { scale: 2, useCORS: true });
+            const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+            const file = new File([blob], `${stock.ticker}-배당.png`, { type: 'image/png' });
+            if (navigator.canShare?.({ files: [file] })) {
+                await navigator.share({ files: [file] });
+            } else {
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = file.name;
+                a.click();
+                URL.revokeObjectURL(a.href);
+            }
+        } catch (e) {
+            console.error('capture failed', e);
+        } finally {
+            setCapturing(false);
+        }
+    };
+
+    return (
+        <div>
+            <div
+                ref={cardRef}
+                className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/60 p-4 sm:p-5 shadow-2xl shadow-black/10"
+            >
+                <div className="flex flex-wrap items-start gap-x-4 sm:gap-x-6 gap-y-2">
+                    <div className="flex items-center gap-3 min-w-0">
+                        <div
+                            className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600
+                flex items-center justify-center shadow-md flex-shrink-0"
+                        >
+                            <span className="text-white text-sm font-black">{stock.ticker.slice(0, 2)}</span>
+                        </div>
+                        <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <h1 className="text-xl font-black text-slate-900 dark:text-white">{stock.ticker}</h1>
+                                <span
+                                    className={
+                                        'px-2 py-0.5 rounded-full text-xs font-semibold ' +
+                                        (stock.country === 'US'
+                                            ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
+                                            : 'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300')
+                                    }
+                                >
+                                    {stock.country === 'US' ? '🇺🇸 미국' : '🇰🇷 한국'}
+                                </span>
+                                <FreqBadge freq={stock.frequency} />
+                            </div>
+                            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                                {stock.displayName || stock.name}
+                            </p>
+                            <p className="text-xs text-slate-400 dark:text-slate-500">{stock.sector}</p>
+                        </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 sm:gap-3 ml-auto">
+                        <MetricChip
+                            label="현재가"
+                            value={fmtNum(stock.currentPrice, stock.currency)}
+                            icon={<DollarSign className="w-3.5 h-3.5" />}
+                        />
+                        <MetricChip
+                            label="배당수익률 (연)"
+                            value={stock.dividendYield.toFixed(2) + '%'}
+                            icon={<Percent className="w-3.5 h-3.5" />}
+                            highlight="emerald"
+                        />
+                        <MetricChip
+                            label="연간 DPS (세전)"
+                            value={fmtNum(stock.annualDPS, stock.currency)}
+                            icon={<BarChart2 className="w-3.5 h-3.5" />}
+                        />
+                        {/* <MetricChip
+                            label="세율"
+                            value={(stock.taxRate * 100).toFixed(1) + '%'}
+                            icon={<Info className="w-3.5 h-3.5" />}
+                            highlight="amber"
+                        /> */}
+                    </div>
                 </div>
+                <p className="mt-3 text-xs text-slate-500 dark:text-slate-400 leading-relaxed border-t border-slate-100 dark:border-slate-700 pt-3">
+                    {stock.description}
+                </p>
             </div>
-            <p className="mt-3 text-xs text-slate-500 dark:text-slate-400 leading-relaxed border-t border-slate-100 dark:border-slate-700 pt-3">
-                {stock.description}
-            </p>
+            {/* ── 공유 / 캡처 액션 버튼 ── */}
+            <div className="flex gap-2 mt-2 justify-end flex-wrap">
+                <button
+                    onClick={handleShare}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold
+                        bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white
+                        shadow-sm transition-all hover:scale-105 active:scale-95"
+                >
+                    <Share2 className="w-3.5 h-3.5" />
+                    공유하기
+                </button>
+                <a
+                    href={threadsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold
+                        bg-slate-900 hover:bg-slate-700 dark:bg-white dark:hover:bg-slate-200
+                        text-white dark:text-slate-900
+                        shadow-sm transition-all hover:scale-105 active:scale-95"
+                >
+                    <svg width="14" height="14" viewBox="0 0 192 192" fill="currentColor" aria-hidden="true">
+                        <path d="M141.537 88.988a66 66 0 0 0-2.518-1.143c-1.482-27.307-16.403-42.94-41.457-43.1h-.34c-14.986 0-27.449 6.396-35.12 18.036l13.779 9.452c5.7-8.664 14.663-10.52 21.348-10.52h.23c8.249.053 14.474 2.452 18.502 7.13 2.932 3.405 4.893 8.111 5.864 14.05-7.314-1.245-15.224-1.628-23.693-1.14-23.794 1.372-39.094 15.377-38.108 34.8.498 9.836 5.443 18.296 13.932 23.822 7.16 4.697 16.382 6.993 25.944 6.48 12.638-.695 22.564-5.516 29.502-14.33 5.28-6.687 8.617-15.348 10.098-26.261 6.054 3.655 10.532 8.499 13.01 14.42 4.239 10.148 4.49 26.836-8.964 40.22-11.85 11.79-26.123 16.89-47.644 17.04-23.912-.168-41.974-7.839-53.692-22.8-10.976-14.007-16.642-34.208-16.838-60.043.196-25.835 5.862-46.036 16.838-60.043 11.718-14.961 29.78-22.632 53.692-22.8 24.076.17 42.37 7.881 54.434 22.92 5.981 7.468 10.469 16.98 13.393 28.19l16.212-4.326c-3.554-13.31-9.254-24.787-17.067-34.08C130.577 11.45 107.244 2.07 79.528 1.9h-.558C51.358 2.07 28.27 11.496 14.662 29.988 2.44 46.76-3.835 70.128-4 96.02l.003.562C-3.835 122.47 2.44 145.838 14.662 162.61c13.608 18.489 36.693 27.921 64.308 28.085h.558c24.547-.138 41.85-6.609 56.103-20.826 18.833-18.755 18.29-43.13 12.123-57.876-4.48-10.733-13.11-19.47-25.217-25.005Zm-44.258 43.871c-10.426.58-21.258-4.096-21.808-14.155-.395-7.399 5.274-15.656 22.38-16.619 1.958-.113 3.88-.168 5.768-.168 6.335 0 12.27.606 17.653 1.785-2.009 25.115-13.945 28.612-23.993 29.157Z" />
+                    </svg>
+                    Threads
+                </a>
+                <button
+                    onClick={handleCapture}
+                    disabled={capturing}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold
+                        bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700
+                        text-slate-700 dark:text-slate-200
+                        shadow-sm transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-wait"
+                >
+                    <Camera className="w-3.5 h-3.5" />
+                    {capturing ? '캡처 중…' : '이미지 저장'}
+                </button>
+            </div>
         </div>
     );
 }
@@ -2127,6 +2216,7 @@ function DashboardApp() {
     const savedTickersRef = useRef([]);
     const cachedAtLoadRef = useRef({});
     const hydratedRef = useRef(false);
+    const deepLinkLoadedRef = useRef(false);
 
     const [watchlist, setWatchlist] = useState(() => {
         try {
@@ -2655,6 +2745,26 @@ function DashboardApp() {
         });
     }, [handleFetchLive]);
 
+    // ── URL 딥링크 자동 로드 (최초 마운트 1회) ────────────────────────
+    useEffect(() => {
+        if (deepLinkLoadedRef.current) return;
+        deepLinkLoadedRef.current = true;
+        const params = new URLSearchParams(window.location.search);
+        const ticker = params.get('ticker')?.toUpperCase();
+        const page = params.get('page');
+        if (page === 'portfolio') {
+            setCurrentPage('etf-explorer');
+        } else if (ticker) {
+            const cached = liveCache[ticker];
+            if (cached) {
+                setSelected(cached);
+            } else {
+                handleFetchLive(ticker);
+            }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [handleFetchLive]);
+
     useEffect(() => {
         localStorage.setItem('dm-watchlist', JSON.stringify(watchlist.map((s) => s.ticker)));
     }, [watchlist]);
@@ -2784,6 +2894,18 @@ function DashboardApp() {
             document.title = BASE_TITLE;
             metaDesc?.setAttribute('content', BASE_DESC);
         }
+    }, [selected, currentPage]);
+
+    // ── URL 상태 동기화 (공유 링크 생성) ──────────────────────────────
+    useEffect(() => {
+        const params = new URLSearchParams();
+        if (currentPage === 'etf-explorer') {
+            params.set('page', 'portfolio');
+        } else if (selected?.ticker) {
+            params.set('ticker', selected.ticker);
+        }
+        const newSearch = params.toString() ? `?${params.toString()}` : '';
+        window.history.replaceState(null, '', window.location.pathname + newSearch);
     }, [selected, currentPage]);
 
     const rateDisplay = (exchangeRate ?? DEFAULT_EXCHANGE_RATE).toLocaleString();

@@ -5,6 +5,13 @@
 [build.environment]
   NODE_VERSION = "18"
 
+[edge_functions]
+  directory = "netlify/edge-functions"
+
+[[edge_functions]]
+  path = "/"
+  function = "og-inject"
+
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
