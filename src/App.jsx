@@ -1820,7 +1820,7 @@ function CapexContainer({ stock, capexData, loading }) {
                                 {chartData.map((d) => (
                                     <tr key={d.year} className="border-b border-slate-100 dark:border-slate-700/50">
                                         <td className="py-1.5 px-2 text-slate-700 dark:text-slate-300">FY {d.year}</td>
-                                        <td className="py-1.5 px-2 text-right font-mono text-slate-800 dark:text-slate-200">
+                                        <td className="py-1.5 px-2 text-right font-mono text-slate-900 dark:text-white">
                                             {formatAmount(d.amount)}
                                         </td>
                                         <td
@@ -3008,7 +3008,9 @@ function DashboardApp() {
                                 onSelect={setSelected}
                                 onRemove={handleRemove}
                             />
-                            {selected ? (
+                            {loadingSymbol ? (
+                                <LoadingSkeleton symbol={loadingSymbol} />
+                            ) : selected ? (
                                 <StockDetailView
                                     stock={selected}
                                     holdingsData={etpHoldings[selected.ticker]}
@@ -3016,8 +3018,6 @@ function DashboardApp() {
                                     capexData={capexData[selected.ticker]}
                                     loadingCapex={loadingCapex}
                                 />
-                            ) : loadingSymbol ? (
-                                <LoadingSkeleton symbol={loadingSymbol} />
                             ) : (
                                 <div className="flex-1">
                                     <EmptyState onPickTicker={handleFetchLive} />
