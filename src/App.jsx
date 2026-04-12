@@ -810,13 +810,13 @@ function DividendTimeline({ stock }) {
 
             <div className="flex flex-col gap-2.5 sm:gap-3">
                 {byYear.map((row) => (
-                    <div key={row.year} className="overflow-x-auto pb-1">
-                        <div className="flex items-center gap-2 mb-1 text-xs text-slate-500 dark:text-slate-400">
+                    <div key={row.year}>
+                        <div className="flex items-center gap-2 mb-1.5 text-xs text-slate-500 dark:text-slate-400">
                             <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-semibold">
                                 {row.year}
                             </span>
                         </div>
-                        <div className="flex gap-2 min-w-max">
+                        <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-12 gap-1.5">
                             {row.months.map((monthData, idx) => {
                                 const isCurrentMonth = row.year === CURRENT_YEAR && idx === CURRENT_MONTH;
                                 const hasEvent = monthData.ex.length > 0 || monthData.pay.length > 0;
@@ -824,7 +824,7 @@ function DividendTimeline({ stock }) {
                                     <div
                                         key={row.year + '-' + idx}
                                         className={
-                                            'flex-shrink-0 w-[88px] rounded-xl border transition-colors ' +
+                                            'rounded-xl border transition-colors ' +
                                             (isCurrentMonth
                                                 ? 'border-indigo-400 dark:border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20'
                                                 : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60')
@@ -832,7 +832,7 @@ function DividendTimeline({ stock }) {
                                     >
                                         <div
                                             className={
-                                                'text-center py-1.5 text-xs font-semibold rounded-t-xl ' +
+                                                'text-center py-1 text-[11px] font-semibold rounded-t-xl ' +
                                                 (isCurrentMonth
                                                     ? 'text-indigo-700 dark:text-indigo-300 bg-indigo-100 dark:bg-indigo-900/40'
                                                     : 'text-slate-500 dark:text-slate-400')
@@ -840,14 +840,16 @@ function DividendTimeline({ stock }) {
                                         >
                                             {MONTH_SHORT[idx]}
                                             {isCurrentMonth && (
-                                                <span className="ml-1 text-[9px] font-bold text-indigo-400">NOW</span>
+                                                <span className="ml-0.5 text-[8px] font-bold text-indigo-400 align-super">
+                                                    NOW
+                                                </span>
                                             )}
                                         </div>
 
-                                        <div className="p-1.5 flex flex-col gap-1 min-h-[96px]">
+                                        <div className="p-1 flex flex-col gap-0.5 min-h-[60px]">
                                             {!hasEvent && (
-                                                <div className="flex items-center justify-center h-full">
-                                                    <span className="text-xs text-slate-300 dark:text-slate-600">
+                                                <div className="flex items-center justify-center flex-1 h-full">
+                                                    <span className="text-[10px] text-slate-300 dark:text-slate-600">
                                                         —
                                                     </span>
                                                 </div>
@@ -859,19 +861,19 @@ function DividendTimeline({ stock }) {
                                                     <div
                                                         key={'ex' + i}
                                                         className={
-                                                            'rounded-lg px-1.5 py-1 ' +
+                                                            'rounded-md px-1 py-0.5 ' +
                                                             (isPast
                                                                 ? 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/40 opacity-55'
                                                                 : 'bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700')
                                                         }
                                                     >
-                                                        <p className="text-[9px] font-bold text-red-600 dark:text-red-400">
-                                                            EX-DATE
+                                                        <p className="text-[8px] font-bold text-red-600 dark:text-red-400 leading-tight">
+                                                            EX
                                                         </p>
-                                                        <p className="text-xs font-semibold text-red-700 dark:text-red-300">
+                                                        <p className="text-[10px] font-semibold text-red-700 dark:text-red-300 leading-tight">
                                                             {fmtMD(ev.exDate)}
                                                         </p>
-                                                        <p className="text-[9px] text-red-500 dark:text-red-400">
+                                                        <p className="text-[9px] text-red-500 dark:text-red-400 leading-tight">
                                                             {fmtNum(ev.dps, stock.currency)}
                                                         </p>
                                                     </div>
@@ -883,19 +885,19 @@ function DividendTimeline({ stock }) {
                                                     <div
                                                         key={'pay' + i}
                                                         className={
-                                                            'rounded-lg px-1.5 py-1 ' +
+                                                            'rounded-md px-1 py-0.5 ' +
                                                             (isPast
                                                                 ? 'bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-900/40 opacity-55'
                                                                 : 'bg-emerald-100 dark:bg-emerald-900/30 border border-emerald-300 dark:border-emerald-700')
                                                         }
                                                     >
-                                                        <p className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400">
-                                                            PAY-DATE
+                                                        <p className="text-[8px] font-bold text-emerald-600 dark:text-emerald-400 leading-tight">
+                                                            PAY
                                                         </p>
-                                                        <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                                                        <p className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 leading-tight">
                                                             {fmtMD(ev.payDate)}
                                                         </p>
-                                                        <p className="text-[9px] text-emerald-500 dark:text-emerald-400">
+                                                        <p className="text-[9px] text-emerald-500 dark:text-emerald-400 leading-tight">
                                                             {fmtNum(ev.dps, stock.currency)}
                                                         </p>
                                                     </div>
