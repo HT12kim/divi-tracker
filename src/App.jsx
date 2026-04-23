@@ -658,7 +658,7 @@ function WatchlistPanel({ watchlist, selected, onSelect, onRemove }) {
 // ─────────────────────────────────────────────
 // 7. StockInfoHeader
 // ─────────────────────────────────────────────
-function StockInfoHeader({ stock }) {
+function StockInfoHeader({ stock, mddData, loadingMdd }) {
     const shareUrl = `https://divi-tracker.netlify.app/?ticker=${encodeURIComponent(stock.ticker)}`;
     const name = stock.displayName || stock.name || stock.ticker;
     const yieldStr = stock.dividendYield ? stock.dividendYield.toFixed(2) + '%' : '';
@@ -739,6 +739,30 @@ function StockInfoHeader({ stock }) {
                                 />
                             ) : null;
                         })()}
+                        <MetricChip
+                            label="MDD (10년)"
+                            value={
+                                loadingMdd
+                                    ? '···'
+                                    : mddData?.mdd10y != null
+                                      ? `${mddData.mdd10y.toFixed(1)}%`
+                                      : '—'
+                            }
+                            icon={<TrendingUp className="w-3.5 h-3.5" />}
+                            highlight={mddData?.mdd10y != null ? 'red' : undefined}
+                        />
+                        <MetricChip
+                            label="MDD (1년)"
+                            value={
+                                loadingMdd
+                                    ? '···'
+                                    : mddData?.mdd1y != null
+                                      ? `${mddData.mdd1y.toFixed(1)}%`
+                                      : '—'
+                            }
+                            icon={<TrendingUp className="w-3.5 h-3.5" />}
+                            highlight={mddData?.mdd1y != null ? 'amber' : undefined}
+                        />
                     </div>
                 </div>
                 <p className="mt-3 text-xs text-slate-500 dark:text-slate-400 leading-relaxed border-t border-slate-100 dark:border-slate-700 pt-3">
@@ -1939,11 +1963,11 @@ function StockJsonLd({ stock }) {
 // ─────────────────────────────────────────────
 // 13-b. StockDetailView
 // ─────────────────────────────────────────────
-function StockDetailView({ stock, holdingsData, loadingHoldings, capexData, loadingCapex }) {
+function StockDetailView({ stock, holdingsData, loadingHoldings, capexData, loadingCapex, mddData, loadingMdd }) {
     return (
         <div className="flex-1 w-full flex flex-col gap-4 min-w-0">
             <StockJsonLd stock={stock} />
-            <StockInfoHeader stock={stock} />
+            <StockInfoHeader stock={stock} mddData={mddData} loadingMdd={loadingMdd} />
             <DpsBarChart stock={stock} />
             <DividendTimeline stock={stock} />
             <CapexContainer stock={stock} capexData={capexData} loading={loadingCapex} />
@@ -2723,6 +2747,10 @@ function DashboardApp() {
     const [loadingCapex, setLoadingCapex] = useState(null);
     const capexFetchedRef = useRef(new Set());
 
+    const [mddData, setMddData] = useState({}); // { [ticker]: { mdd10y, mdd1y } }
+    const [loadingMdd, setLoadingMdd] = useState(null); // ticker | null
+    const mddFetchedRef = useRef(new Set());
+
     // 한국 종목·ETF 목록 (fetchLiveStock + SearchBar 공유)
     const [krStocks, setKrStocks] = useState([]);
     const [krEtfs, setKrEtfs] = useState([]);
@@ -3330,6 +3358,39 @@ function DashboardApp() {
         fetchCapex(selected);
     }, [selected, fetchCapex]);
 
+    const fetchMdd = useCallback(async (stock) => {
+        const ticker = stock.ticker;
+        if (mddFetchedRef.current.has(ticker)) return;
+        mddFetchedRef.current.add(ticker);
+        setLoadingMdd(ticker);
+        try {
+            const [res10, res1] = await Promise.all([
+                fetch(`/api/mdd?tickers=${encodeURIComponent(ticker)}&years=10`),
+                fetch(`/api/mdd?tickers=${encodeURIComponent(ticker)}&years=1`),
+            ]);
+            const [d10, d1] = await Promise.all([
+                res10.ok ? res10.json() : Promise.resolve({}),
+                res1.ok ? res1.json() : Promise.resolve({}),
+            ]);
+            setMddData((prev) => ({
+                ...prev,
+                [ticker]: {
+                    mdd10y: d10[ticker] ?? null,
+                    mdd1y: d1[ticker] ?? null,
+                },
+            }));
+        } catch (_) {
+            mddFetchedRef.current.delete(ticker);
+        } finally {
+            setLoadingMdd((prev) => (prev === ticker ? null : prev));
+        }
+    }, []);
+
+    useEffect(() => {
+        if (!selected) return;
+        fetchMdd(selected);
+    }, [selected, fetchMdd]);
+
     const handleSearch = useCallback((stock) => {
         setWatchlist((prev) => {
             if (prev.find((s) => s.ticker === stock.ticker)) return prev;
@@ -3500,6 +3561,8 @@ function DashboardApp() {
                                     loadingHoldings={loadingHoldings === selected.ticker}
                                     capexData={capexData[selected.ticker]}
                                     loadingCapex={loadingCapex === selected.ticker}
+                                    mddData={mddData[selected.ticker]}
+                                    loadingMdd={loadingMdd === selected.ticker}
                                 />
                             ) : (
                                 <div className="flex-1">
