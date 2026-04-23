@@ -2205,9 +2205,9 @@ function EtfExplorerPage({ onBack, krEtfs, krDataReady }) {
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                            {(current.holdings || []).map((h) => (
+                                            {(current.holdings || []).map((h, idx) => (
                                                 <tr
-                                                    key={h.ticker}
+                                                    key={h.ticker || h.name || `row-${idx}`}
                                                     className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors"
                                                 >
                                                     <td className="px-3 sm:px-4 py-2.5 text-xs text-slate-400 tabular-nums w-8">
