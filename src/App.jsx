@@ -1730,9 +1730,9 @@ function EtpHoldingsContainer({ stock, holdingsData, loading }) {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                    {holdings.map((h) => (
+                                    {holdings.map((h, idx) => (
                                         <tr
-                                            key={h.rank}
+                                            key={h.rank || h.ticker || h.name || `row-${idx}`}
                                             className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
                                         >
                                             <td className="px-3 py-2 text-slate-400 dark:text-slate-500 font-mono">
@@ -2626,8 +2626,8 @@ function EtfSearchView({ krEtfs, krDataReady }) {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                    {holdingsData.holdings.map((h) => (
-                                        <tr key={h.rank}
+                                    {holdingsData.holdings.map((h, idx) => (
+                                        <tr key={h.rank || h.ticker || h.name || `row-${idx}`}
                                             className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
                                             <td className="px-3 sm:px-4 py-2.5 text-slate-400 tabular-nums w-8">{h.rank}</td>
                                             <td className="px-3 sm:px-4 py-2.5 font-medium text-slate-800 dark:text-slate-200
