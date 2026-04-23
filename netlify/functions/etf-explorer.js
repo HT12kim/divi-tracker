@@ -295,20 +295,33 @@ const fetchBrkHoldings = async () => {
     if (!entries.length) throw new Error('No infoTable entries in XML');
 
     const holdings = [];
-    let totalValue = 0;
     for (const entry of entries) {
         const name = entry.match(/<nameOfIssuer>(.*?)<\/nameOfIssuer>/i)?.[1]?.trim() || '';
         const cusip = entry.match(/<cusip>(.*?)<\/cusip>/i)?.[1]?.trim() || '';
         const val = parseInt(entry.match(/<value>(.*?)<\/value>/i)?.[1]?.replace(/,/g, '') || '0', 10);
         const shrs = parseInt(entry.match(/<sshPrnamt>(.*?)<\/sshPrnamt>/i)?.[1]?.replace(/,/g, '') || '0', 10);
         if (!name || val <= 0) continue;
-        totalValue += val;
         holdings.push({ name, cusip, value: val, shares: shrs });
     }
     if (!holdings.length) throw new Error('No valid holdings parsed');
 
-    holdings.sort((a, b) => b.value - a.value);
-    return holdings.slice(0, 30).map((h, i) => ({
+    // 같은 티커로 resolve되는 여러 CUSIP 항목 병합 (value/shares 합산)
+    const tickerMap = new Map();
+    for (const h of holdings) {
+        const key = resolveCusip(h.cusip, h.name) || h.name;
+        if (tickerMap.has(key)) {
+            const existing = tickerMap.get(key);
+            existing.value += h.value;
+            existing.shares += h.shares;
+        } else {
+            tickerMap.set(key, { ...h });
+        }
+    }
+    const merged = Array.from(tickerMap.values());
+    const totalValue = merged.reduce((s, h) => s + h.value, 0);
+
+    merged.sort((a, b) => b.value - a.value);
+    return merged.slice(0, 30).map((h, i) => ({
         rank: i + 1,
         ticker: resolveCusip(h.cusip, h.name),
         name: h.name,
