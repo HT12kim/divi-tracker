@@ -1732,7 +1732,7 @@ function EtpHoldingsContainer({ stock, holdingsData, loading }) {
                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                                     {holdings.map((h, idx) => (
                                         <tr
-                                            key={h.rank || h.ticker || h.name || `row-${idx}`}
+                                            key={`${h.ticker || h.name || 'unknown'}-${idx}`}
                                             className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
                                         >
                                             <td className="px-3 py-2 text-slate-400 dark:text-slate-500 font-mono">
