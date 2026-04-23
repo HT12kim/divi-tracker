@@ -1,7 +1,7 @@
 /**
  * ETF 탐색기 API
- * - GET /api/etf-explorer?fund=ARKK  → 구성종목 + 가격 + 3년 MDD + 최근 매매
- * - GET /api/etf-explorer?fund=BRK-B → 버크셔 구성종목 + 가격 + 3년 MDD
+ * - GET /api/etf-explorer?fund=ARKK  → 구성종목 + 가격 + 현재 낙폭(52주 고점비) + 최근 매매
+ * - GET /api/etf-explorer?fund=BRK-B → 버크셔 구성종목 + 가격 + 현재 낙폭(52주 고점비)
  */
 import YahooFinance from 'yahoo-finance2';
 
@@ -45,47 +45,6 @@ const fetchPrices = async (tickers) => {
         }),
     );
     return { priceMap, ddMap };
-};
-
-// ── 3년 MDD 계산 ────────────────────────────────────────────────────────
-const calcMdd3y = async (ticker) => {
-    try {
-        const period1 = new Date();
-        period1.setFullYear(period1.getFullYear() - 3);
-        const period2 = new Date();
-        const hist = await yahoo.historical(
-            ticker,
-            {
-                period1: period1.toISOString().slice(0, 10),
-                period2: period2.toISOString().slice(0, 10),
-                interval: '1mo',
-            },
-            { validateResult: false },
-        );
-        if (!hist || hist.length < 3) return null;
-        const closes = hist.map((d) => d.close).filter((v) => v != null && v > 0);
-        let maxDrawdown = 0;
-        let peak = closes[0];
-        for (const c of closes) {
-            if (c > peak) peak = c;
-            const dd = (peak - c) / peak;
-            if (dd > maxDrawdown) maxDrawdown = dd;
-        }
-        return parseFloat((-maxDrawdown * 100).toFixed(1));
-    } catch (_) {
-        return null;
-    }
-};
-
-// ── MDD 배치 계산 (상위 N개 종목만) ─────────────────────────────────────
-const fetchMddBatch = async (tickers) => {
-    const map = {};
-    await Promise.allSettled(
-        tickers.map(async (t) => {
-            map[t] = await calcMdd3y(t);
-        }),
-    );
-    return map;
 };
 
 // ── ARK CSV 파싱 ─────────────────────────────────────────────────────────
@@ -197,7 +156,7 @@ const fetchArkTrades = async () => {
 // ── BRK 최근 13F SEC EDGAR 기반 구성종목 ─────────────────────────────────
 // SEC EDGAR full-text search: 버크셔 CIK = 0001067983
 const BRK_CIK = '0001067983';
-const SEC_UA = 'DividendMaster/1.0 (fruciante86@gmail.com)';
+const SEC_UA = `DividendMaster/1.0 (${process.env.SEC_CONTACT_EMAIL || 'fruciante86@gmail.com'})`;
 
 // 주요 CUSIP → 티커 매핑 (버크셔 상위 포트폴리오 기준)
 const CUSIP_TICKER = {
@@ -316,9 +275,13 @@ const fetchBrkHoldings = async () => {
         if (!docPath) docPath = xmlLinks.find((l) => !/primary_doc/i.test(l) && l.endsWith('.xml'));
 
         if (docPath) {
+            const ctrl3 = new AbortController();
+            const tid3 = setTimeout(() => ctrl3.abort(), 5000);
             const xmlRes = await fetch(docPath.startsWith('http') ? docPath : `https://www.sec.gov${docPath}`, {
                 headers: { 'User-Agent': SEC_UA },
+                signal: ctrl3.signal,
             });
+            clearTimeout(tid3);
             if (xmlRes.ok) xmlText = await xmlRes.text();
         }
     } catch (e) {
@@ -412,15 +375,10 @@ export const handler = async (event) => {
             const tickers = holdings.map((h) => h.ticker).filter(Boolean);
             const { priceMap, ddMap } = await fetchPrices(tickers);
 
-            // 4) MDD 계산 (상위 15개)
-            const mddTickers = tickers.slice(0, 15);
-            const mddMap = await fetchMddBatch(mddTickers);
-
-            // 5) 머지
+            // 4) 머지
             const enriched = holdings.map((h) => ({
                 ...h,
                 price: priceMap[h.ticker] ?? null,
-                mdd3y: mddMap[h.ticker] ?? null,
                 drawdown: ddMap[h.ticker] ?? null,
             }));
 

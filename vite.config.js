@@ -4,6 +4,9 @@ import YahooFinance from 'yahoo-finance2';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { handler as etfExplorerHandler } from './netlify/functions/etf-explorer.js';
+import { handler as holdingsHandler } from './netlify/functions/holdings.js';
+import { handler as mddHandler } from './netlify/functions/mdd.js';
 
 // yahoo-finance2 v3+ exposes a class; create a single instance for reuse.
 const yahooFinance = new YahooFinance();
@@ -152,6 +155,43 @@ export default defineConfig({
                                 });
                             }
                             return send(200, items);
+                        }
+
+                        if (url.pathname === '/api/etf-explorer') {
+                            const fund = url.searchParams.get('fund');
+                            const result = await etfExplorerHandler({
+                                queryStringParameters: { fund: fund || 'ARKK' },
+                            });
+                            res.statusCode = result.statusCode;
+                            res.setHeader('Content-Type', 'application/json');
+                            res.end(result.body);
+                            return;
+                        }
+
+                        if (url.pathname === '/api/mdd') {
+                            const result = await mddHandler({
+                                queryStringParameters: {
+                                    tickers: url.searchParams.get('tickers') || '',
+                                    years: url.searchParams.get('years') || '10',
+                                },
+                            });
+                            res.statusCode = result.statusCode;
+                            res.setHeader('Content-Type', 'application/json');
+                            res.end(result.body);
+                            return;
+                        }
+
+                        if (url.pathname === '/api/holdings') {
+                            const result = await holdingsHandler({
+                                queryStringParameters: {
+                                    symbol: url.searchParams.get('symbol') || '',
+                                    country: url.searchParams.get('country') || 'US',
+                                },
+                            });
+                            res.statusCode = result.statusCode;
+                            res.setHeader('Content-Type', 'application/json');
+                            res.end(result.body);
+                            return;
                         }
 
                         if (url.pathname === '/api/dividends') {

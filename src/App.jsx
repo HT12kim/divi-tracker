@@ -3,7 +3,7 @@
 //  단일 파일 React 컴포넌트 (src/App.jsx)
 // ============================================================
 
-import React, { useState, useEffect, useRef, useCallback, createContext, useContext } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, createContext, useContext } from 'react';
 import {
     Search,
     X,
@@ -26,6 +26,8 @@ import {
     Line,
     BarChart,
     Bar,
+    PieChart,
+    Pie,
     Cell,
     XAxis,
     YAxis,
@@ -43,9 +45,9 @@ const CACHE_VERSION = 5; // 버전 올리면 모든 stale 캐시 자동 파기
 // 3. 공용 상수
 // ─────────────────────────────────────────────
 const DEFAULT_EXCHANGE_RATE = 1350;
-const TODAY = new Date();
-const CURRENT_YEAR = TODAY.getFullYear();
-const CURRENT_MONTH = TODAY.getMonth();
+const getToday = () => new Date();
+const getCurrentYear = () => new Date().getFullYear();
+const getCurrentMonth = () => new Date().getMonth();
 const MONTH_SHORT = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'];
 
 // ─────────────────────────────────────────────
@@ -68,11 +70,11 @@ const fmtMD = (s) => {
     return String(d.getMonth() + 1).padStart(2, '0') + '/' + String(d.getDate()).padStart(2, '0');
 };
 
-const dDay = (dateStr) => Math.ceil((parseDate(dateStr) - TODAY) / (1000 * 60 * 60 * 24));
+const dDay = (dateStr) => Math.ceil((parseDate(dateStr) - getToday()) / (1000 * 60 * 60 * 24));
 
 const nextExDate = (stock) => {
     const futures = stock.events
-        .filter((e) => parseDate(e.exDate) >= TODAY)
+        .filter((e) => parseDate(e.exDate) >= getToday())
         .sort((a, b) => parseDate(a.exDate) - parseDate(b.exDate));
     return futures[0] || null;
 };
@@ -80,7 +82,47 @@ const nextExDate = (stock) => {
 const FREQ_LABEL = { monthly: '월배당', quarterly: '분기', semiannual: '반기', annual: '연 1회', none: '비배당주' };
 
 // ─────────────────────────────────────────────
-// 4. 테마 컨텍스트
+// 4. Toast 시스템
+// ─────────────────────────────────────────────
+const ToastContext = createContext(null);
+
+function ToastProvider({ children }) {
+    const [toasts, setToasts] = useState([]);
+    const addToast = useCallback((message, type = 'error') => {
+        const id = Date.now();
+        setToasts((prev) => [...prev, { id, message, type }]);
+        setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 4000);
+    }, []);
+    return (
+        <ToastContext.Provider value={addToast}>
+            {children}
+            <div className="fixed top-4 right-4 z-[100] flex flex-col gap-2 pointer-events-none">
+                {toasts.map((t) => (
+                    <div
+                        key={t.id}
+                        className={
+                            'pointer-events-auto px-4 py-3 rounded-xl shadow-xl text-sm font-medium max-w-xs ' +
+                            (t.type === 'error'
+                                ? 'bg-red-600 text-white'
+                                : 'bg-emerald-600 text-white')
+                        }
+                    >
+                        {t.message}
+                    </div>
+                ))}
+            </div>
+        </ToastContext.Provider>
+    );
+}
+
+const useToast = () => {
+    const ctx = useContext(ToastContext);
+    if (!ctx) throw new Error('useToast must be used within ToastProvider');
+    return ctx;
+};
+
+// ─────────────────────────────────────────────
+// 5. 테마 컨텍스트
 // ─────────────────────────────────────────────
 const ThemeContext = createContext(null);
 
@@ -514,107 +556,101 @@ function WatchlistPanel({ watchlist, selected, onSelect, onRemove }) {
             <h2 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-1">
                 관심 목록 ({watchlist.length})
             </h2>
-            <div className="flex flex-col gap-1.5">
+            <ul className="flex flex-col gap-1.5" role="list">
                 {watchlist.map((s) => {
                     const next = nextExDate(s);
                     const dd = next ? dDay(next.exDate) : null;
                     const isActive = selected && selected.ticker === s.ticker;
                     return (
-                        <div
-                            key={s.ticker}
-                            role="button"
-                            tabIndex={0}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter' || e.key === ' ') {
-                                    e.preventDefault();
-                                    onSelect(s);
+                        <li key={s.ticker} className="relative group">
+                            <button
+                                type="button"
+                                aria-pressed={isActive}
+                                className={
+                                    'w-full text-left rounded-xl p-3 border transition-all bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl shadow-lg shadow-black/5 ' +
+                                    (isActive
+                                        ? 'border-orange-300/80 shadow-none dark:shadow-none'
+                                        : 'border-slate-200/80 dark:border-slate-800 hover:border-orange-300 dark:hover:border-orange-500')
                                 }
-                            }}
-                            className={
-                                'group relative rounded-xl p-3 cursor-pointer border transition-all bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl shadow-lg shadow-black/5 ' +
-                                (isActive
-                                    ? 'border-orange-300/80 shadow-none dark:shadow-none'
-                                    : 'border-slate-200/80 dark:border-slate-800 hover:border-orange-300 dark:hover:border-orange-500')
-                            }
-                            onClick={() => onSelect(s)}
-                        >
-                            <div className="flex items-start justify-between gap-1">
-                                <div className="min-w-0">
-                                    <p
+                                onClick={() => onSelect(s)}
+                            >
+                                <div className="flex items-start gap-1 pr-5">
+                                    <div className="min-w-0">
+                                        <p
+                                            className={
+                                                'text-sm font-bold leading-tight ' +
+                                                (isActive
+                                                    ? 'text-slate-900 dark:text-white'
+                                                    : 'text-slate-800 dark:text-slate-100')
+                                            }
+                                        >
+                                            {s.ticker}
+                                        </p>
+                                        <p
+                                            className={
+                                                'text-xs truncate ' +
+                                                (isActive
+                                                    ? 'text-slate-600 dark:text-indigo-200'
+                                                    : 'text-slate-500 dark:text-slate-400')
+                                            }
+                                        >
+                                            {s.displayName || s.name}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center justify-between mt-2">
+                                    <span
                                         className={
-                                            'text-sm font-bold leading-tight ' +
+                                            'text-xs font-medium ' +
                                             (isActive
-                                                ? 'text-slate-900 dark:text-white'
-                                                : 'text-slate-800 dark:text-slate-100')
-                                        }
-                                    >
-                                        {s.ticker}
-                                    </p>
-                                    <p
-                                        className={
-                                            'text-xs truncate ' +
-                                            (isActive
-                                                ? 'text-slate-600 dark:text-indigo-200'
+                                                ? 'text-indigo-700 dark:text-indigo-200'
                                                 : 'text-slate-500 dark:text-slate-400')
                                         }
                                     >
-                                        {s.displayName || s.name}
-                                    </p>
+                                        {FREQ_LABEL[s.frequency]}
+                                    </span>
+                                    <span
+                                        className={
+                                            'text-sm font-bold ' +
+                                            (isActive
+                                                ? 'text-emerald-800 dark:text-emerald-300'
+                                                : 'text-emerald-700 dark:text-emerald-400')
+                                        }
+                                    >
+                                        연 배당수익률 {s.dividendYield.toFixed(2)}%
+                                    </span>
                                 </div>
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onRemove(s.ticker);
-                                    }}
-                                    className={
-                                        'opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded-md ' +
-                                        (isActive
-                                            ? 'hover:bg-indigo-500 text-indigo-200'
-                                            : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400')
-                                    }
-                                >
-                                    <X className="w-3 h-3" />
-                                </button>
-                            </div>
-                            <div className="flex items-center justify-between mt-2">
-                                <span
-                                    className={
-                                        'text-xs font-medium ' +
-                                        (isActive
-                                            ? 'text-indigo-700 dark:text-indigo-200'
-                                            : 'text-slate-500 dark:text-slate-400')
-                                    }
-                                >
-                                    {FREQ_LABEL[s.frequency]}
-                                </span>
-                                <span
-                                    className={
-                                        'text-sm font-bold ' +
-                                        (isActive
-                                            ? 'text-emerald-800 dark:text-emerald-300'
-                                            : 'text-emerald-700 dark:text-emerald-400')
-                                    }
-                                >
-                                    연 배당수익률 {s.dividendYield.toFixed(2)}%
-                                </span>
-                            </div>
-                            {dd !== null && (
-                                <div
-                                    className={
-                                        'mt-1.5 text-xs rounded-md px-2 py-0.5 inline-flex items-center gap-1 ' +
-                                        (isActive
-                                            ? 'bg-indigo-500/50 text-indigo-100'
-                                            : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400')
-                                    }
-                                >
-                                    <CalendarDays className="w-3 h-3" />
-                                    {dd === 0 ? '오늘 배당락!' : dd > 0 ? 'D-' + dd : Math.abs(dd) + '일 전'}
-                                </div>
-                            )}
-                        </div>
+                                {dd !== null && (
+                                    <div
+                                        className={
+                                            'mt-1.5 text-xs rounded-md px-2 py-0.5 inline-flex items-center gap-1 ' +
+                                            (isActive
+                                                ? 'bg-indigo-500/50 text-indigo-100'
+                                                : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400')
+                                        }
+                                    >
+                                        <CalendarDays className="w-3 h-3" />
+                                        {dd === 0 ? '오늘 배당락!' : dd > 0 ? 'D-' + dd : Math.abs(dd) + '일 전'}
+                                    </div>
+                                )}
+                            </button>
+                            <button
+                                type="button"
+                                aria-label={`${s.ticker} 삭제`}
+                                onClick={() => onRemove(s.ticker)}
+                                className={
+                                    'absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity p-0.5 rounded-md ' +
+                                    (isActive
+                                        ? 'hover:bg-indigo-500 text-indigo-200'
+                                        : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400')
+                                }
+                            >
+                                <X className="w-3 h-3" />
+                            </button>
+                        </li>
                     );
                 })}
-            </div>
+            </ul>
         </aside>
     );
 }
@@ -776,7 +812,7 @@ function FreqBadge({ freq }) {
 // 8. DividendTimeline
 // ─────────────────────────────────────────────
 function DividendTimeline({ stock }) {
-    const years = [CURRENT_YEAR - 1, CURRENT_YEAR];
+    const years = [getCurrentYear() - 1, getCurrentYear()];
     const yearsDesc = [...years].sort((a, b) => b - a);
     const byYear = yearsDesc.map((year) => ({ year, months: Array.from({ length: 12 }, () => ({ ex: [], pay: [] })) }));
 
@@ -823,7 +859,7 @@ function DividendTimeline({ stock }) {
                         </div>
                         <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-12 gap-1.5">
                             {row.months.map((monthData, idx) => {
-                                const isCurrentMonth = row.year === CURRENT_YEAR && idx === CURRENT_MONTH;
+                                const isCurrentMonth = row.year === getCurrentYear() && idx === getCurrentMonth();
                                 const hasEvent = monthData.ex.length > 0 || monthData.pay.length > 0;
                                 return (
                                     <div
@@ -929,7 +965,7 @@ function DividendTable({ stock }) {
             <div className="flex items-center gap-2 px-5 py-3.5 border-b border-slate-100 dark:border-slate-700">
                 <Clock className="w-4 h-4 text-indigo-500" />
                 <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                    {CURRENT_YEAR}년 배당 상세 일정
+                    {getCurrentYear()}년 배당 상세 일정
                 </h2>
                 <span className="ml-auto text-xs text-slate-400 dark:text-slate-500">총 {stock.events.length}회</span>
             </div>
@@ -1924,12 +1960,34 @@ const ETF_FUNDS = [
     { id: 'BRK-B', label: 'BRK-B', desc: '버크셔 해서웨이', color: 'text-amber-500' },
 ];
 
-function EtfExplorerPage({ onBack }) {
+function EtfExplorerPage({ onBack, krEtfs, krDataReady }) {
     const { dark } = useTheme();
+    const [view, setView] = useState('portfolio'); // 'portfolio' | 'etf-search'
     const [activeFund, setActiveFund] = useState('ARKK');
     const [data, setData] = useState({}); // { ARKK: {...}, 'BRK-B': {...} }
     const [loading, setLoading] = useState({});
     const [errors, setErrors] = useState({});
+    const [mddData, setMddData] = useState({}); // { ARKK: {TSLA: -82.4, ...}, 'BRK-B': {...} }
+    const [loadingMdd, setLoadingMdd] = useState({}); // { ARKK: true/false }
+
+    const fetchMdd = useCallback(async (fund, holdings) => {
+        const tickers = holdings
+            .map((h) => h.ticker)
+            .filter(Boolean)
+            .slice(0, 15)
+            .join(',');
+        if (!tickers) return;
+        setLoadingMdd((p) => ({ ...p, [fund]: true }));
+        try {
+            const res = await fetch(`/api/mdd?tickers=${encodeURIComponent(tickers)}&years=10`);
+            if (!res.ok) return;
+            const json = await res.json();
+            if (!json.error) setMddData((p) => ({ ...p, [fund]: json }));
+        } catch (_) {
+        } finally {
+            setLoadingMdd((p) => ({ ...p, [fund]: false }));
+        }
+    }, []);
 
     const fetchFund = useCallback(
         async (fund) => {
@@ -1937,16 +1995,18 @@ function EtfExplorerPage({ onBack }) {
             setLoading((p) => ({ ...p, [fund]: true }));
             try {
                 const res = await fetch(`/api/etf-explorer?fund=${encodeURIComponent(fund)}`);
+                if (!res.ok) throw new Error(`서버 오류 (${res.status})`);
                 const json = await res.json();
                 if (json.error && !json.holdings?.length) throw new Error(json.error);
                 setData((p) => ({ ...p, [fund]: json }));
+                if (json.holdings?.length) fetchMdd(fund, json.holdings);
             } catch (e) {
                 setErrors((p) => ({ ...p, [fund]: e.message }));
             } finally {
                 setLoading((p) => ({ ...p, [fund]: false }));
             }
         },
-        [loading],
+        [loading, fetchMdd],
     );
 
     useEffect(() => {
@@ -1955,6 +2015,8 @@ function EtfExplorerPage({ onBack }) {
 
     const current = data[activeFund];
     const isLoading = loading[activeFund];
+    const currentMdd = mddData[activeFund] || {};
+    const isMddLoading = loadingMdd[activeFund] ?? false;
     const error = errors[activeFund];
 
     const fmtPrice = (v) => {
@@ -1989,167 +2051,206 @@ function EtfExplorerPage({ onBack }) {
                 <div>
                     <h1 className="text-base font-bold text-slate-900 dark:text-white">포트폴리오 엿보기</h1>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
-                        구성종목 · 비중 · 가격 · 3년 MDD · 현재 낙폭 · 매매내역
+                        구성종목 · 비중 · 가격 · 현재 낙폭 · 매매내역
                     </p>
                 </div>
             </div>
 
-            {/* 펀드 탭 */}
+            {/* 뷰 토글 */}
             <div className="flex gap-2 mb-5">
-                {ETF_FUNDS.map((f) => (
+                {[
+                    { id: 'portfolio', label: '포트폴리오 엿보기', desc: 'ARKK · BRK-B' },
+                    { id: 'etf-search', label: 'ETF 구성종목 검색', desc: '원그래프' },
+                ].map((v) => (
                     <button
-                        key={f.id}
-                        onClick={() => {
-                            if (f.id === activeFund) return;
-                            setData((prev) => {
-                                const n = { ...prev };
-                                delete n[f.id];
-                                return n;
-                            });
-                            setErrors((prev) => {
-                                const n = { ...prev };
-                                delete n[f.id];
-                                return n;
-                            });
-                            setActiveFund(f.id);
-                        }}
+                        key={v.id}
+                        onClick={() => setView(v.id)}
                         className={`px-4 py-2 rounded-xl text-sm font-semibold border transition-all
-                            ${
-                                activeFund === f.id
-                                    ? 'bg-indigo-600 border-indigo-500 text-white shadow-md'
-                                    : 'bg-white/70 dark:bg-slate-800/70 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-slate-700'
+                            ${view === v.id
+                                ? 'bg-indigo-600 border-indigo-500 text-white shadow-md'
+                                : 'bg-white/70 dark:bg-slate-800/70 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-slate-700'
                             }`}
                     >
-                        <span className={activeFund === f.id ? 'text-white' : f.color}>{f.label}</span>
-                        <span
-                            className={`ml-1.5 text-xs font-normal ${activeFund === f.id ? 'text-indigo-200' : 'text-slate-400'}`}
-                        >
-                            {f.desc}
+                        {v.label}
+                        <span className={`ml-1.5 text-xs font-normal ${view === v.id ? 'text-indigo-200' : 'text-slate-400'}`}>
+                            {v.desc}
                         </span>
                     </button>
                 ))}
             </div>
 
-            {/* 로딩 */}
-            {isLoading && (
-                <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 p-6 shadow-xl">
-                    <div className="space-y-3 animate-pulse">
-                        {[...Array(8)].map((_, i) => (
-                            <div key={i} className="flex gap-3 items-center">
-                                <div className="w-6 h-4 bg-slate-200 dark:bg-slate-700 rounded" />
-                                <div className="flex-1 h-4 bg-slate-200 dark:bg-slate-700 rounded" />
-                                <div className="w-16 h-4 bg-slate-200 dark:bg-slate-700 rounded" />
-                                <div className="w-20 h-4 bg-slate-200 dark:bg-slate-700 rounded" />
-                                <div className="w-16 h-4 bg-slate-200 dark:bg-slate-700 rounded" />
-                                <div className="w-16 h-4 bg-slate-200 dark:bg-slate-700 rounded" />
-                            </div>
+            {view === 'etf-search' ? (
+                <EtfSearchView krEtfs={krEtfs} krDataReady={krDataReady} />
+            ) : (
+                <>
+                    {/* 펀드 탭 */}
+                    <div className="flex gap-2 mb-5">
+                        {ETF_FUNDS.map((f) => (
+                            <button
+                                key={f.id}
+                                onClick={() => {
+                                    if (f.id === activeFund) return;
+                                    setData((prev) => {
+                                        const n = { ...prev };
+                                        delete n[f.id];
+                                        return n;
+                                    });
+                                    setErrors((prev) => {
+                                        const n = { ...prev };
+                                        delete n[f.id];
+                                        return n;
+                                    });
+                                    setActiveFund(f.id);
+                                }}
+                                className={`px-4 py-2 rounded-xl text-sm font-semibold border transition-all
+                                    ${
+                                        activeFund === f.id
+                                            ? 'bg-indigo-600 border-indigo-500 text-white shadow-md'
+                                            : 'bg-white/70 dark:bg-slate-800/70 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-slate-700'
+                                    }`}
+                            >
+                                <span className={activeFund === f.id ? 'text-white' : f.color}>{f.label}</span>
+                                <span
+                                    className={`ml-1.5 text-xs font-normal ${activeFund === f.id ? 'text-indigo-200' : 'text-slate-400'}`}
+                                >
+                                    {f.desc}
+                                </span>
+                            </button>
                         ))}
                     </div>
-                    <p className="text-center text-xs text-slate-400 mt-4">
-                        데이터 로딩 중… (가격 · MDD 계산 포함, 최대 30초 소요)
-                    </p>
-                </div>
-            )}
 
-            {/* 에러 */}
-            {!isLoading && error && (
-                <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 border border-red-200 dark:border-red-800/40 p-6 shadow-xl flex items-center gap-3">
-                    <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
-                    <div>
-                        <p className="text-sm font-semibold text-red-600 dark:text-red-400">데이터 로딩 실패</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{error}</p>
-                    </div>
-                </div>
-            )}
-
-            {/* 구성종목 테이블 */}
-            {!isLoading && current && (
-                <>
-                    <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 shadow-xl mb-4 overflow-hidden">
-                        <div className="px-4 sm:px-5 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2">
-                                <BarChart2 className="w-4 h-4 text-indigo-500" />
-                                <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                                    구성종목 ({current.holdings?.length ?? 0}개)
-                                </h2>
+                    {/* 로딩 */}
+                    {isLoading && (
+                        <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 p-6 shadow-xl">
+                            <div className="space-y-3 animate-pulse">
+                                {[...Array(8)].map((_, i) => (
+                                    <div key={i} className="flex gap-3 items-center">
+                                        <div className="w-6 h-4 bg-slate-200 dark:bg-slate-700 rounded" />
+                                        <div className="flex-1 h-4 bg-slate-200 dark:bg-slate-700 rounded" />
+                                        <div className="w-16 h-4 bg-slate-200 dark:bg-slate-700 rounded" />
+                                        <div className="w-20 h-4 bg-slate-200 dark:bg-slate-700 rounded" />
+                                        <div className="w-16 h-4 bg-slate-200 dark:bg-slate-700 rounded" />
+                                        <div className="w-16 h-4 bg-slate-200 dark:bg-slate-700 rounded" />
+                                    </div>
+                                ))}
                             </div>
-                            <div className="text-right">
-                                <span className="text-xs text-slate-400 dark:text-slate-500">
-                                    출처: {current.source}
-                                </span>
-                                {current.updatedAt && (
-                                    <span className="ml-2 text-xs text-slate-300 dark:text-slate-600">
-                                        {new Date(current.updatedAt).toLocaleTimeString('ko-KR', {
-                                            hour: '2-digit',
-                                            minute: '2-digit',
-                                        })}{' '}
-                                        기준
-                                    </span>
-                                )}
-                            </div>
+                            <p className="text-center text-xs text-slate-400 mt-4">
+                                데이터 로딩 중… (가격 조회 포함, 10초 내외 소요)
+                            </p>
                         </div>
+                    )}
 
-                        {/* 모바일 스크롤 가능 테이블 */}
-                        <div className="overflow-x-auto">
-                            <table className="w-full min-w-[640px] text-sm">
-                                <thead className="sticky top-0 bg-slate-50/90 dark:bg-slate-800/90 backdrop-blur">
-                                    <tr>
-                                        {['#', '종목명', '티커', '비중', '가격(USD)', '3년 MDD', '현재 낙폭'].map(
-                                            (h) => (
-                                                <th
-                                                    key={h}
-                                                    className="px-3 sm:px-4 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap"
-                                                >
-                                                    {h}
-                                                </th>
-                                            ),
+                    {/* 에러 */}
+                    {!isLoading && error && (
+                        <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 border border-red-200 dark:border-red-800/40 p-6 shadow-xl flex items-center gap-3">
+                            <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+                            <div className="flex-1">
+                                <p className="text-sm font-semibold text-red-600 dark:text-red-400">데이터 로딩 실패</p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{error}</p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setErrors((p) => ({ ...p, [activeFund]: undefined }));
+                                    fetchFund(activeFund);
+                                }}
+                                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/40 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
+                            >
+                                다시 시도
+                            </button>
+                        </div>
+                    )}
+
+                    {/* 구성종목 테이블 */}
+                    {!isLoading && current && (
+                        <>
+                            <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 shadow-xl mb-4 overflow-hidden">
+                                <div className="px-4 sm:px-5 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2">
+                                        <BarChart2 className="w-4 h-4 text-indigo-500" />
+                                        <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                                            구성종목 ({current.holdings?.length ?? 0}개)
+                                        </h2>
+                                    </div>
+                                    <div className="text-right">
+                                        <span className="text-xs text-slate-400 dark:text-slate-500">
+                                            출처: {current.source}
+                                        </span>
+                                        {current.updatedAt && (
+                                            <span className="ml-2 text-xs text-slate-300 dark:text-slate-600">
+                                                {new Date(current.updatedAt).toLocaleTimeString('ko-KR', {
+                                                    hour: '2-digit',
+                                                    minute: '2-digit',
+                                                })}{' '}
+                                                기준
+                                            </span>
                                         )}
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                    {(current.holdings || []).map((h) => (
-                                        <tr
-                                            key={h.ticker}
-                                            className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors"
-                                        >
-                                            <td className="px-3 sm:px-4 py-2.5 text-xs text-slate-400 tabular-nums w-8">
-                                                {h.rank}
-                                            </td>
-                                            <td className="px-3 sm:px-4 py-2.5 max-w-[180px]">
-                                                <span className="text-xs font-medium text-slate-800 dark:text-slate-200 line-clamp-1">
-                                                    {h.name}
-                                                </span>
-                                            </td>
-                                            <td className="px-3 sm:px-4 py-2.5">
-                                                <span className="text-xs font-mono font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-1.5 py-0.5 rounded">
-                                                    {h.ticker}
-                                                </span>
-                                            </td>
-                                            <td className="px-3 sm:px-4 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-300 tabular-nums">
-                                                {h.weight > 0 ? h.weight.toFixed(2) + '%' : '—'}
-                                            </td>
-                                            <td className="px-3 sm:px-4 py-2.5 text-xs tabular-nums text-slate-700 dark:text-slate-300">
-                                                {fmtPrice(h.price)}
-                                            </td>
-                                            <td className="px-3 sm:px-4 py-2.5 text-xs tabular-nums font-semibold">
-                                                {fmtMdd(h.mdd3y)}
-                                            </td>
-                                            <td className="px-3 sm:px-4 py-2.5 text-xs tabular-nums font-semibold">
-                                                {fmtMdd(h.drawdown)}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                        <p className="px-4 py-2 text-[10px] text-slate-400 dark:text-slate-600 border-t border-slate-100 dark:border-slate-800">
-                            * 3년 MDD(최대낙폭): 월봉 기준, 상위 15개. 현재 낙폭: 52주 고점 대비. 투자 참고용이며 투자
-                            권유가 아닙니다.
-                        </p>
-                    </div>
+                                    </div>
+                                </div>
 
-                    {/* 최근 매매 내역 */}
-                    <EtfTradesSection trades={current.trades} fund={activeFund} note={current.note} />
+                                <div className="overflow-x-auto">
+                                    <table className="w-full min-w-[640px] text-sm">
+                                        <thead className="sticky top-0 bg-slate-50/90 dark:bg-slate-800/90 backdrop-blur">
+                                            <tr>
+                                                {['#', '종목명', '티커', '비중', '가격(USD)', 'MDD(10년)', '현재 낙폭'].map(
+                                                    (h) => (
+                                                        <th
+                                                            key={h}
+                                                            className="px-3 sm:px-4 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap"
+                                                        >
+                                                            {h}
+                                                        </th>
+                                                    ),
+                                                )}
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                            {(current.holdings || []).map((h) => (
+                                                <tr
+                                                    key={h.ticker}
+                                                    className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors"
+                                                >
+                                                    <td className="px-3 sm:px-4 py-2.5 text-xs text-slate-400 tabular-nums w-8">
+                                                        {h.rank}
+                                                    </td>
+                                                    <td className="px-3 sm:px-4 py-2.5 max-w-[180px]">
+                                                        <span className="text-xs font-medium text-slate-800 dark:text-slate-200 line-clamp-1">
+                                                            {h.name}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-3 sm:px-4 py-2.5">
+                                                        <span className="text-xs font-mono font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-1.5 py-0.5 rounded">
+                                                            {h.ticker}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-3 sm:px-4 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-300 tabular-nums">
+                                                        {h.weight > 0 ? h.weight.toFixed(2) + '%' : '—'}
+                                                    </td>
+                                                    <td className="px-3 sm:px-4 py-2.5 text-xs tabular-nums text-slate-700 dark:text-slate-300">
+                                                        {fmtPrice(h.price)}
+                                                    </td>
+                                                    <td className="px-3 sm:px-4 py-2.5 text-xs tabular-nums font-semibold">
+                                                        {isMddLoading
+                                                            ? <span className="text-slate-400 animate-pulse">···</span>
+                                                            : fmtMdd(currentMdd[h.ticker] ?? null)}
+                                                    </td>
+                                                    <td className="px-3 sm:px-4 py-2.5 text-xs tabular-nums font-semibold">
+                                                        {fmtMdd(h.drawdown)}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <p className="px-4 py-2 text-[10px] text-slate-400 dark:text-slate-600 border-t border-slate-100 dark:border-slate-800">
+                                    * MDD(10년): 최근 10년 월봉 기준 최대낙폭. 현재 낙폭: 52주 고점 대비. 투자 참고용이며 투자 권유가 아닙니다.
+                                </p>
+                            </div>
+
+                            {/* 최근 매매 내역 */}
+                            <EtfTradesSection trades={current.trades} fund={activeFund} note={current.note} />
+                        </>
+                    )}
                 </>
             )}
         </main>
@@ -2235,10 +2336,339 @@ function EtfTradesSection({ trades, fund, note }) {
 }
 
 // ─────────────────────────────────────────────
+// 14-B. ETF 검색 뷰 (구성종목 원그래프)
+// ─────────────────────────────────────────────
+const ETF_PIE_COLORS = [
+    '#6366f1', '#f59e0b', '#10b981', '#3b82f6', '#ec4899',
+    '#f97316', '#8b5cf6', '#14b8a6', '#ef4444', '#94a3b8',
+];
+
+function EtfSearchView({ krEtfs, krDataReady }) {
+    const [query, setQuery] = useState('');
+    const [debounced, setDebounced] = useState('');
+    const [open, setOpen] = useState(false);
+    const [suggestions, setSuggestions] = useState([]);
+    const [loadingSuggest, setLoadingSuggest] = useState(false);
+    const wrapRef = useRef(null);
+
+    const [selectedEtf, setSelectedEtf] = useState(null);
+    const [holdingsData, setHoldingsData] = useState(null);
+    const [loadingHoldings, setLoadingHoldings] = useState(false);
+    const [holdingsError, setHoldingsError] = useState(null);
+
+    useEffect(() => {
+        const t = setTimeout(() => setDebounced(query.trim()), 300);
+        return () => clearTimeout(t);
+    }, [query]);
+
+    useEffect(() => {
+        const h = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); };
+        document.addEventListener('mousedown', h);
+        return () => document.removeEventListener('mousedown', h);
+    }, []);
+
+    useEffect(() => {
+        if (debounced.length < 2 || /[가-힣]/.test(debounced)) { setSuggestions([]); return; }
+        const ctrl = new AbortController();
+        setLoadingSuggest(true);
+        fetch(`/api/search?q=${encodeURIComponent(debounced)}`, { signal: ctrl.signal })
+            .then((r) => r.ok ? r.json() : Promise.reject())
+            .then((d) => {
+                setSuggestions(
+                    (d.quotes || [])
+                        .filter((q) => q.quoteType === 'ETF')
+                        .map((q) => ({
+                            symbol: q.symbol,
+                            name: q.shortname || q.longname || q.symbol,
+                            country: 'US',
+                        }))
+                );
+            })
+            .catch(() => {})
+            .finally(() => setLoadingSuggest(false));
+        return () => ctrl.abort();
+    }, [debounced]);
+
+    const qLower = query.trim().toLowerCase();
+    const isKorean = /[가-힣]/.test(qLower);
+    const localKrResults = qLower.length >= (isKorean ? 1 : 2)
+        ? (krEtfs || [])
+            .filter((e) =>
+                isKorean
+                    ? (e.name || '').toLowerCase().includes(qLower) || (e.shortName || '').toLowerCase().includes(qLower)
+                    : (e.shortName || '').toLowerCase().includes(qLower) || (e.engName || '').toLowerCase().includes(qLower) || e.code.startsWith(qLower)
+            )
+            .slice(0, 8)
+            .map((e) => ({ symbol: e.code, name: e.shortName || e.name, country: 'KR' }))
+        : [];
+
+    const seen = new Set();
+    const merged = [...localKrResults, ...suggestions].filter((item) => {
+        if (seen.has(item.symbol)) return false;
+        seen.add(item.symbol);
+        return true;
+    });
+
+    const handleSelect = useCallback(async (etf) => {
+        setQuery(''); setOpen(false);
+        setSelectedEtf(etf); setHoldingsData(null); setHoldingsError(null);
+        setLoadingHoldings(true);
+        try {
+            const res = await fetch(`/api/holdings?symbol=${encodeURIComponent(etf.symbol)}&country=${etf.country}`);
+            if (!res.ok) throw new Error(`서버 오류 (${res.status})`);
+            const json = await res.json();
+            if (json.error && !json.holdings?.length) throw new Error(json.error);
+            setHoldingsData(json);
+        } catch (e) {
+            setHoldingsError(e.message);
+        } finally {
+            setLoadingHoldings(false);
+        }
+    }, []);
+
+    const pieData = useMemo(() => {
+        const holdings = holdingsData?.holdings || [];
+        if (!holdings.length) return [];
+        const top = holdings.slice(0, 9);
+        const othersW = holdings.slice(9).reduce((s, h) => s + (h.weight || 0), 0);
+        return [
+            ...top.map((h) => ({ name: h.name || h.ticker, ticker: h.ticker, value: h.weight || 0 })),
+            ...(othersW > 0.01 ? [{ name: '기타 (Others)', ticker: '', value: +othersW.toFixed(2) }] : []),
+        ];
+    }, [holdingsData]);
+
+    return (
+        <div>
+            <div ref={wrapRef} className="relative mb-5">
+                <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl
+                    bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl
+                    border border-slate-200/80 dark:border-slate-800/70
+                    shadow-lg focus-within:ring-2 focus-within:ring-indigo-400 transition-all">
+                    <Search className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                    <input
+                        type="text"
+                        value={query}
+                        placeholder="ETF 티커 또는 이름 검색 (예: QQQ, KODEX200, TIGER)"
+                        className="flex-1 bg-transparent text-sm text-slate-800 dark:text-slate-200
+                            placeholder:text-slate-400 outline-none"
+                        onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
+                        onFocus={() => setOpen(true)}
+                        onKeyDown={(e) => { if (e.key === 'Escape') setOpen(false); }}
+                    />
+                    {query && (
+                        <button onClick={() => { setQuery(''); setOpen(false); }}
+                            className="text-slate-400 hover:text-indigo-500 transition-colors">
+                            <X className="w-3.5 h-3.5" />
+                        </button>
+                    )}
+                </div>
+                {open && (merged.length > 0 || loadingSuggest) && (
+                    <ul className="absolute top-full mt-2 left-0 right-0 z-50 rounded-2xl shadow-2xl
+                        bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl
+                        border border-slate-200/80 dark:border-slate-800/70 overflow-hidden"
+                        role="listbox">
+                        {loadingSuggest && !merged.length && (
+                            <li className="px-4 py-3 text-sm text-slate-400">검색 중…</li>
+                        )}
+                        {merged.map((item) => (
+                            <li key={item.symbol} role="option">
+                                <button
+                                    onClick={() => handleSelect(item)}
+                                    className="w-full flex items-center gap-3 px-4 py-3 text-left
+                                        hover:bg-indigo-50 dark:hover:bg-slate-700 transition-colors
+                                        border-b border-slate-100 dark:border-slate-800 last:border-0"
+                                >
+                                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600
+                                        flex items-center justify-center flex-shrink-0 text-white text-xs font-bold">
+                                        {item.symbol.slice(0, 2)}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">
+                                            {item.name}
+                                        </p>
+                                        <p className="text-xs text-slate-400">
+                                            {item.symbol} · {item.country === 'KR' ? '한국 ETF' : 'US ETF'}
+                                        </p>
+                                    </div>
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </div>
+
+            {selectedEtf && (
+                <div className="flex items-center gap-2 mb-4 flex-wrap">
+                    <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{selectedEtf.name}</span>
+                    <span className="text-xs font-mono bg-indigo-50 dark:bg-indigo-900/30
+                        text-indigo-600 dark:text-indigo-400 px-1.5 py-0.5 rounded">
+                        {selectedEtf.symbol}
+                    </span>
+                    <span className="text-xs text-slate-400">{selectedEtf.country}</span>
+                    {holdingsData?.source && (
+                        <span className="ml-auto text-[10px] font-semibold px-2 py-0.5 rounded-full
+                            bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
+                            출처: {holdingsData.source}
+                        </span>
+                    )}
+                </div>
+            )}
+
+            {loadingHoldings && (
+                <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 border
+                    border-slate-200/80 dark:border-slate-800/70 p-6 shadow-xl">
+                    <div className="flex flex-col sm:flex-row gap-6 animate-pulse">
+                        <div className="w-52 h-52 rounded-full bg-slate-200 dark:bg-slate-700 mx-auto sm:mx-0 flex-shrink-0" />
+                        <div className="flex-1 space-y-3 self-center">
+                            {[...Array(6)].map((_, i) => (
+                                <div key={i} className="h-3.5 bg-slate-200 dark:bg-slate-700 rounded"
+                                    style={{ width: `${75 - i * 8}%` }} />
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {!loadingHoldings && holdingsError && (
+                <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 border border-red-200
+                    dark:border-red-800/40 p-5 shadow-xl flex items-center gap-3">
+                    <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+                    <div className="flex-1">
+                        <p className="text-sm font-semibold text-red-600 dark:text-red-400">구성종목 조회 실패</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{holdingsError}</p>
+                    </div>
+                    <button
+                        onClick={() => selectedEtf && handleSelect(selectedEtf)}
+                        className="px-3 py-1.5 rounded-lg text-xs font-medium bg-red-50 dark:bg-red-900/20
+                            border border-red-200 dark:border-red-800/40 text-red-600 dark:text-red-400
+                            hover:bg-red-100 transition-colors">
+                        다시 시도
+                    </button>
+                </div>
+            )}
+
+            {!loadingHoldings && holdingsData?.holdings?.length > 0 && (
+                <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl
+                    border border-slate-200/80 dark:border-slate-800/70 shadow-xl overflow-hidden">
+                    <div className="p-4 sm:p-5 flex flex-col sm:flex-row gap-4 sm:gap-8 items-center sm:items-start">
+                        <div className="w-full sm:w-56 flex-shrink-0">
+                            <ResponsiveContainer width="100%" height={224}>
+                                <PieChart>
+                                    <Pie
+                                        data={pieData}
+                                        cx="50%" cy="50%"
+                                        innerRadius={52} outerRadius={106}
+                                        paddingAngle={2}
+                                        dataKey="value"
+                                    >
+                                        {pieData.map((_, idx) => (
+                                            <Cell key={idx} fill={ETF_PIE_COLORS[idx % ETF_PIE_COLORS.length]} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip
+                                        content={({ active, payload }) => {
+                                            if (!active || !payload?.length) return null;
+                                            const { name, ticker, value } = payload[0].payload;
+                                            return (
+                                                <div className="rounded-xl border px-3 py-2 text-xs shadow-xl
+                                                    bg-white dark:bg-slate-900
+                                                    border-slate-200 dark:border-slate-700
+                                                    text-slate-800 dark:text-slate-200">
+                                                    <p className="font-semibold">{name}</p>
+                                                    {ticker && <p className="text-slate-400">{ticker}</p>}
+                                                    <p className="font-bold mt-1">{value.toFixed(2)}%</p>
+                                                </div>
+                                            );
+                                        }}
+                                    />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </div>
+                        <div className="flex-1 min-w-0 grid grid-cols-1 gap-1.5 self-center w-full">
+                            {pieData.map((entry, idx) => (
+                                <div key={idx} className="flex items-center gap-2 text-xs min-w-0">
+                                    <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0"
+                                        style={{ background: ETF_PIE_COLORS[idx % ETF_PIE_COLORS.length] }} />
+                                    <span className="text-slate-700 dark:text-slate-300 truncate flex-1 min-w-0">
+                                        {entry.name}
+                                    </span>
+                                    <span className="font-semibold tabular-nums text-slate-600 dark:text-slate-400 flex-shrink-0">
+                                        {entry.value.toFixed(2)}%
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="border-t border-slate-100 dark:border-slate-800">
+                        <div className="px-4 sm:px-5 py-3 flex items-center gap-2">
+                            <BarChart2 className="w-4 h-4 text-indigo-500" />
+                            <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                                전체 구성종목 ({holdingsData.holdings.length}개)
+                            </h3>
+                            {holdingsData.weightApprox && (
+                                <span className="text-[10px] px-2 py-0.5 rounded-full
+                                    bg-amber-100 dark:bg-amber-900/40
+                                    text-amber-600 dark:text-amber-400 font-semibold">
+                                    비중 근사값
+                                </span>
+                            )}
+                        </div>
+                        <div className="overflow-x-auto max-h-72 overflow-y-auto">
+                            <table className="w-full min-w-[320px] text-xs">
+                                <thead className="sticky top-0 bg-slate-50/90 dark:bg-slate-800/90 backdrop-blur">
+                                    <tr>
+                                        {['#', '종목명', '티커', '비중(%)'].map((h) => (
+                                            <th key={h} className="px-3 sm:px-4 py-2.5 text-left font-semibold
+                                                text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                                                {h}
+                                            </th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                    {holdingsData.holdings.map((h) => (
+                                        <tr key={h.rank}
+                                            className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
+                                            <td className="px-3 sm:px-4 py-2.5 text-slate-400 tabular-nums w-8">{h.rank}</td>
+                                            <td className="px-3 sm:px-4 py-2.5 font-medium text-slate-800 dark:text-slate-200
+                                                max-w-[160px] truncate">{h.name}</td>
+                                            <td className="px-3 sm:px-4 py-2.5">
+                                                <span className="font-mono text-indigo-600 dark:text-indigo-400
+                                                    bg-indigo-50 dark:bg-indigo-900/30 px-1.5 py-0.5 rounded text-[10px]">
+                                                    {h.ticker || '—'}
+                                                </span>
+                                            </td>
+                                            <td className="px-3 sm:px-4 py-2.5 font-semibold text-slate-700 dark:text-slate-300 tabular-nums">
+                                                {h.weight > 0 ? h.weight.toFixed(2) + '%' : '—'}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {!selectedEtf && !loadingHoldings && (
+                <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 border
+                    border-slate-200/80 dark:border-slate-800/70 p-12 shadow-xl
+                    flex flex-col items-center gap-3 text-slate-400 dark:text-slate-500">
+                    <Search className="w-10 h-10 opacity-30" />
+                    <p className="text-sm font-medium">ETF 티커 또는 이름으로 검색하세요</p>
+                    <p className="text-xs opacity-70">예: QQQ · KODEX200 · TIGER · SPY · SCHD</p>
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────
 // 15. App Root
 // ─────────────────────────────────────────────
 function DashboardApp() {
     const { dark, toggle } = useTheme();
+    const addToast = useToast();
     const [currentPage, setCurrentPage] = useState('main'); // 'main' | 'etf-explorer'
 
     const [liveCache, setLiveCache] = useState(() => {
@@ -2287,10 +2717,10 @@ function DashboardApp() {
     const [exchangeRate, setExchangeRate] = useState(null);
     const [exchangeRateUpdatedAt, setExchangeRateUpdatedAt] = useState(null);
     const [etpHoldings, setEtpHoldings] = useState({});
-    const [loadingHoldings, setLoadingHoldings] = useState(false);
+    const [loadingHoldings, setLoadingHoldings] = useState(null);
     const etpHoldingsFetchedRef = useRef(new Set());
     const [capexData, setCapexData] = useState({});
-    const [loadingCapex, setLoadingCapex] = useState(false);
+    const [loadingCapex, setLoadingCapex] = useState(null);
     const capexFetchedRef = useRef(new Set());
 
     // 한국 종목·ETF 목록 (fetchLiveStock + SearchBar 공유)
@@ -2410,7 +2840,7 @@ function DashboardApp() {
         return '';
     };
 
-    const fetchKsdDividends = async (symbol) => {
+    const fetchKsdDividends = async (symbol, signal) => {
         if (typeof window === 'undefined' || !window.DOMParser) return [];
 
         const today = new Date();
@@ -2429,7 +2859,7 @@ function DashboardApp() {
                     rgtStdDt: baseDate,
                 });
 
-                const res = await fetch(`/api/ksd-dividends?${params.toString()}`);
+                const res = await fetch(`/api/ksd-dividends?${params.toString()}`, { signal });
                 if (!res.ok) continue;
                 const xmlText = await res.text();
                 if (!xmlText) continue;
@@ -2465,7 +2895,7 @@ function DashboardApp() {
     };
 
     const fetchLiveStock = useCallback(
-        async (symbolInput) => {
+        async (symbolInput, signal) => {
             const raw = symbolInput.trim();
             const normalized = normalizeSymbol(raw);
             if (!normalized) throw new Error('티커를 입력하세요');
@@ -2485,7 +2915,7 @@ function DashboardApp() {
             }
             if (/[가-힣]/.test(raw) || /\s/.test(raw)) {
                 try {
-                    const searchRes = await fetch(`/api/search?q=${encodeURIComponent(raw)}&lang=ko-KR&region=KR`);
+                    const searchRes = await fetch(`/api/search?q=${encodeURIComponent(raw)}&lang=ko-KR&region=KR`, { signal });
                     if (searchRes.ok) {
                         const data = await searchRes.json();
                         const picks = (data.quotes || []).filter((q) => q.symbol && q.quoteType !== 'CRYPTOCURRENCY');
@@ -2530,7 +2960,7 @@ function DashboardApp() {
 
             let quote = null;
             for (const sym of symbolCandidates) {
-                const quoteRes = await fetch(`/api/quote?symbol=${encodeURIComponent(sym)}`);
+                const quoteRes = await fetch(`/api/quote?symbol=${encodeURIComponent(sym)}`, { signal });
                 if (!quoteRes.ok) continue;
                 quote = await quoteRes.json();
                 resolvedSymbol = sym;
@@ -2580,12 +3010,12 @@ function DashboardApp() {
                 const [krNameResult, ksdResult] = await Promise.allSettled([
                     // ③ 한글명 (필요한 경우에만)
                     needKrName
-                        ? fetch(`/api/search?q=${encodeURIComponent(sixDigit)}&lang=ko-KR&region=KR`)
+                        ? fetch(`/api/search?q=${encodeURIComponent(sixDigit)}&lang=ko-KR&region=KR`, { signal })
                               .then((r) => (r.ok ? r.json() : null))
                               .catch(() => null)
                         : Promise.resolve(null),
                     // ④ KSD 배당
-                    fetchKsdDividends(resolvedSymbol).catch((err) => {
+                    fetchKsdDividends(resolvedSymbol, signal).catch((err) => {
                         console.warn('KSD dividend fetch failed', err);
                         return [];
                     }),
@@ -2630,6 +3060,7 @@ function DashboardApp() {
                 try {
                     const divRes = await fetch(
                         `/api/dividends?symbol=${encodeURIComponent(resolvedSymbol)}&from=1990-01-01`,
+                        { signal },
                     );
                     if (divRes.ok) {
                         const divs = await divRes.json();
@@ -2764,7 +3195,7 @@ function DashboardApp() {
             setLoadingSymbol(symbol);
             try {
                 // fetchLiveStock과 fetchExchangeRate를 병렬 실행
-                const [stock] = await Promise.all([fetchLiveStock(symbol), fetchExchangeRate()]);
+                const [stock] = await Promise.all([fetchLiveStock(symbol, controller.signal), fetchExchangeRate()]);
                 if (controller.signal.aborted) return;
                 if (!stock) return;
                 setLiveCache((prev) => ({ ...prev, [stock.ticker]: stock }));
@@ -2777,7 +3208,7 @@ function DashboardApp() {
             } catch (err) {
                 if (controller.signal.aborted) return;
                 console.error(err);
-                alert('실시간 조회 실패: ' + err.message);
+                addToast('실시간 조회 실패: ' + err.message);
             } finally {
                 if (!controller.signal.aborted) setLoadingSymbol(null);
             }
@@ -2815,12 +3246,20 @@ function DashboardApp() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [handleFetchLive]);
 
+    const watchlistDebounceRef = useRef(null);
     useEffect(() => {
-        localStorage.setItem('dm-watchlist', JSON.stringify(watchlist.map((s) => s.ticker)));
+        clearTimeout(watchlistDebounceRef.current);
+        watchlistDebounceRef.current = setTimeout(() => {
+            localStorage.setItem('dm-watchlist', JSON.stringify(watchlist.map((s) => s.ticker)));
+        }, 100);
     }, [watchlist]);
 
+    const liveCacheDebounceRef = useRef(null);
     useEffect(() => {
-        localStorage.setItem('dm-live-cache', JSON.stringify(liveCache));
+        clearTimeout(liveCacheDebounceRef.current);
+        liveCacheDebounceRef.current = setTimeout(() => {
+            localStorage.setItem('dm-live-cache', JSON.stringify(liveCache));
+        }, 100);
     }, [liveCache]);
 
     const fetchHoldings = useCallback(async (stock) => {
@@ -2828,7 +3267,7 @@ function DashboardApp() {
         const ticker = stock.ticker;
         if (etpHoldingsFetchedRef.current.has(ticker)) return;
         etpHoldingsFetchedRef.current.add(ticker);
-        setLoadingHoldings(true);
+        setLoadingHoldings(ticker);
         try {
             const isKR = stock.country === 'KR' || ticker.includes('.KS') || ticker.includes('.KQ');
             const country = isKR ? 'KR' : 'US';
@@ -2852,7 +3291,7 @@ function DashboardApp() {
             etpHoldingsFetchedRef.current.delete(ticker);
             setEtpHoldings((prev) => ({ ...prev, [ticker]: { holdings: [], error: err.message } }));
         } finally {
-            setLoadingHoldings(false);
+            setLoadingHoldings((prev) => (prev === ticker ? null : prev));
         }
     }, []);
 
@@ -2866,7 +3305,7 @@ function DashboardApp() {
         const ticker = stock.ticker;
         if (capexFetchedRef.current.has(ticker)) return;
         capexFetchedRef.current.add(ticker);
-        setLoadingCapex(true);
+        setLoadingCapex(ticker);
         try {
             const country = stock.country || 'US';
             const res = await fetch(`/api/capex?symbol=${encodeURIComponent(ticker)}&country=${country}`);
@@ -2882,7 +3321,7 @@ function DashboardApp() {
             capexFetchedRef.current.delete(ticker);
             setCapexData((prev) => ({ ...prev, [ticker]: { annual: [], error: err.message } }));
         } finally {
-            setLoadingCapex(false);
+            setLoadingCapex((prev) => (prev === ticker ? null : prev));
         }
     }, []);
 
@@ -2916,10 +3355,10 @@ function DashboardApp() {
         const metaDesc = document.querySelector('meta[name="description"]');
 
         if (currentPage === 'etf-explorer') {
-            document.title = '포트폴리오 엿보기 – ARKK·버크셔 구성종목·MDD 실시간 조회 | 배당의 민족';
+            document.title = '포트폴리오 엿보기 – ARKK·버크셔 구성종목·현재가 실시간 조회 | 배당의 민족';
             metaDesc?.setAttribute(
                 'content',
-                'ARKK·버크셔해서웨이 포트폴리오 구성종목, 비중, 현재가, 3년 최대낙폭(MDD), 52주 고점 대비 현재 낙폭을 실시간으로 확인하세요.',
+                'ARKK·버크셔해서웨이 포트폴리오 구성종목, 비중, 현재가, 52주 고점 대비 현재 낙폭을 실시간으로 확인하세요.',
             );
         } else if (selected?.ticker) {
             const name = selected.name || selected.ticker;
@@ -2975,7 +3414,7 @@ function DashboardApp() {
                 <div className="max-w-screen-lg w-full mx-auto px-3 sm:px-6 py-1.5 sm:py-2.5 flex flex-wrap sm:flex-nowrap items-center gap-x-2.5 gap-y-2 sm:gap-4">
                     <div
                         className="flex items-center gap-2.5 flex-shrink-0 cursor-pointer select-none"
-                        onClick={() => window.location.reload()}
+                        onClick={() => { setSelected(null); setCurrentPage('main'); }}
                     >
                         <div className="w-9 h-9 rounded-lg bg-orange-500 flex items-center justify-center shadow-sm">
                             <TrendingUp className="w-4 h-4 text-white" />
@@ -3033,7 +3472,11 @@ function DashboardApp() {
             </header>
 
             {currentPage === 'etf-explorer' ? (
-                <EtfExplorerPage onBack={() => setCurrentPage('main')} />
+                <EtfExplorerPage
+                    onBack={() => setCurrentPage('main')}
+                    krEtfs={krEtfs}
+                    krDataReady={krDataReady}
+                />
             ) : (
                 <main className="flex-1 max-w-screen-lg w-full mx-auto px-3 sm:px-6 py-3 sm:py-6 relative overflow-x-hidden">
                     <div
@@ -3054,9 +3497,9 @@ function DashboardApp() {
                                 <StockDetailView
                                     stock={selected}
                                     holdingsData={etpHoldings[selected.ticker]}
-                                    loadingHoldings={loadingHoldings}
+                                    loadingHoldings={loadingHoldings === selected.ticker}
                                     capexData={capexData[selected.ticker]}
-                                    loadingCapex={loadingCapex}
+                                    loadingCapex={loadingCapex === selected.ticker}
                                 />
                             ) : (
                                 <div className="flex-1">
@@ -3074,7 +3517,7 @@ function DashboardApp() {
 
             <footer className="border-t border-slate-200 dark:border-slate-800 py-3 px-6 mb-[58px]">
                 <p className="text-center text-xs text-slate-400 dark:text-slate-600">
-                    Dividend Master · 환율 ₩{rateDisplay}/USD{rateSuffix} · 기준일 {TODAY.toISOString().slice(0, 10)}
+                    Dividend Master · 환율 ₩{rateDisplay}/USD{rateSuffix} · 기준일 {getToday().toISOString().slice(0, 10)}
                 </p>
             </footer>
 
@@ -3094,8 +3537,10 @@ function DashboardApp() {
 
 export default function App() {
     return (
-        <ThemeProvider>
-            <DashboardApp />
-        </ThemeProvider>
+        <ToastProvider>
+            <ThemeProvider>
+                <DashboardApp />
+            </ThemeProvider>
+        </ToastProvider>
     );
 }

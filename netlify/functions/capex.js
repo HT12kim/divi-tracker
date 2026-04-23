@@ -1,7 +1,7 @@
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
-const SEC_USER_AGENT = 'DividendMaster/1.0 (fruciante86@gmail.com)';
+const SEC_USER_AGENT = `DividendMaster/1.0 (${process.env.SEC_CONTACT_EMAIL || 'fruciante86@gmail.com'})`;
 const DART_API_KEY = process.env.DART_API_KEY || '';
 
 // 빌드 시 생성된 corp-codes.json을 한 번만 읽어 캐싱
