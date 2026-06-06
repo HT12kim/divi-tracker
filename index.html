@@ -349,11 +349,8 @@
         <link rel="preconnect" href="https://query1.finance.yahoo.com" crossorigin />
         <link rel="preconnect" href="https://open.er-api.com" crossorigin />
         <link rel="preconnect" href="https://www.googletagmanager.com" crossorigin />
-        <link rel="preconnect" href="https://t1.daumcdn.net" crossorigin />
         <link rel="preconnect" href="https://t1.kakaocdn.net" crossorigin />
 
-        <!-- ── Kakao AdFit ── -->
-        <script type="text/javascript" src="//t1.daumcdn.net/kas/static/ba.min.js" defer></script>
         <!-- ── Kakao 공유 SDK ── -->
         <script
             src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js"
@@ -371,6 +368,19 @@
     </head>
     <body>
         <div id="root"></div>
+        <div
+            id="kakao-adfit-bottom"
+            class="fixed bottom-0 left-0 right-0 z-50 flex justify-center bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-t border-slate-200/60 dark:border-slate-800/60 py-1"
+        >
+            <ins
+                class="kakao_ad_area"
+                style="display: none"
+                data-ad-unit="DAN-r8PXuWpA6HfKB4GQ"
+                data-ad-width="320"
+                data-ad-height="50"
+            ></ins>
+        </div>
+        <script async type="text/javascript" src="//t1.kakaocdn.net/kas/static/ba.min.js"></script>
         <script type="module" src="/src/main.jsx"></script>
     </body>
 </html>

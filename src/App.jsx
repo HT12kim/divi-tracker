@@ -3584,16 +3584,6 @@ function DashboardApp() {
                 </p>
             </footer>
 
-            {/* ── 카카오 애드핏 배너 (화면 하단 고정) ── */}
-            <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-t border-slate-200/60 dark:border-slate-800/60 py-1">
-                <ins
-                    className="kakao_ad_area"
-                    style={{ display: 'none' }}
-                    data-ad-unit="DAN-r8PXuWpA6HfKB4GQ"
-                    data-ad-width="320"
-                    data-ad-height="50"
-                />
-            </div>
         </div>
     );
 }
