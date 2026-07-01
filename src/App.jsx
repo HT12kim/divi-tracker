@@ -58,6 +58,9 @@ const toKRW = (amount, currency, rate = DEFAULT_EXCHANGE_RATE) => (currency === 
 const fmtKRW = (v) =>
     new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW', maximumFractionDigits: 0 }).format(v);
 
+const fmtExchangeRate = (v) =>
+    new Intl.NumberFormat('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
+
 const fmtUSD = (v) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(v);
 
@@ -101,7 +104,7 @@ function ToastProvider({ children }) {
                     <div
                         key={t.id}
                         className={
-                            'pointer-events-auto px-4 py-3 rounded-xl shadow-xl text-sm font-medium max-w-xs ' +
+                            'pointer-events-auto px-4 py-3 rounded-lg shadow-xl text-sm font-medium max-w-xs ' +
                             (t.type === 'error'
                                 ? 'bg-red-600 text-white'
                                 : 'bg-emerald-600 text-white')
@@ -174,7 +177,7 @@ function KakaoShareButton() {
         <button
             onClick={handleShare}
             aria-label="카카오톡으로 공유하기"
-            className="fixed bottom-[72px] left-4 z-50 flex items-center gap-2 px-4 py-3 rounded-2xl
+            className="fixed bottom-[72px] left-4 z-50 flex items-center gap-2 px-4 py-3 rounded-lg
                 bg-[#FEE500] hover:bg-[#F0D800] active:bg-[#E6CD00]
                 text-[#3A1D1D] font-semibold text-sm
                 shadow-lg shadow-black/20 transition-all hover:scale-105 active:scale-95"
@@ -315,6 +318,12 @@ function SearchBar({ onSelect, onFetch, liveCache, krStocks, krEtfs, krDataReady
                       _fullName: s.name,
                       quoteType: s.type === 'ETF' ? 'ETF' : '주식',
                       exchange: s.assetType || s.market,
+                      etfMarket: s.market,
+                      etfAssetType: s.assetType,
+                      etfTaxType: s.taxType,
+                      etfListingType: s.listingType,
+                      etfReplicationType: s.replicationType,
+                      etfManager: s.manager,
                       _source: 'krLocal',
                   }));
           })()
@@ -380,11 +389,7 @@ function SearchBar({ onSelect, onFetch, liveCache, krStocks, krEtfs, krDataReady
 
     return (
         <div ref={wrapRef} className="relative w-full max-w-xl">
-            <div
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl
-        bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70
-        shadow-lg shadow-black/5 focus-within:ring-2 focus-within:ring-orange-400 transition-all"
-            >
+            <div className="dm-search-shell">
                 <Search className="w-4 h-4 text-slate-400 flex-shrink-0" />
                 <input
                     type="text"
@@ -427,8 +432,7 @@ function SearchBar({ onSelect, onFetch, liveCache, krStocks, krEtfs, krDataReady
 
             {hasDropdown && (
                 <div
-                    className="absolute top-full mt-2 left-0 right-0 z-50 rounded-2xl shadow-2xl shadow-black/10 overflow-hidden
-          bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70"
+                    className="dm-panel absolute top-full mt-2 left-0 right-0 z-50 overflow-hidden"
                 >
                     {isKrDataLoading && (
                         <div className="px-4 py-3 text-sm text-slate-400 dark:text-slate-500">
@@ -470,14 +474,14 @@ function SearchBar({ onSelect, onFetch, liveCache, krStocks, krEtfs, krDataReady
                                     }
                                 }}
                                 className="w-full flex items-center gap-3 px-4 py-3 text-left
-                  hover:bg-indigo-50 dark:hover:bg-slate-700 transition-colors
-                  border-b border-slate-100 dark:border-slate-700 last:border-0"
+                  hover:bg-orange-50/80 dark:hover:bg-slate-800 transition-colors
+                  border-b border-slate-100 dark:border-slate-800 last:border-0"
                             >
                                 <div
-                                    className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600
+                                    className="w-9 h-9 rounded-lg bg-slate-950 dark:bg-white
                   flex items-center justify-center flex-shrink-0"
                                 >
-                                    <span className="text-white text-xs font-bold">{s.ticker.slice(0, 2)}</span>
+                                    <span className="text-white dark:text-slate-950 text-xs font-bold">{s.ticker.slice(0, 2)}</span>
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
@@ -536,7 +540,7 @@ function WatchlistPanel({ watchlist, selected, onSelect, onRemove }) {
                     관심 목록
                 </h2>
                 <div
-                    className="flex flex-col items-center justify-center gap-2 rounded-2xl
+                    className="flex flex-col items-center justify-center gap-2 rounded-lg
                 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-dashed border-slate-200/90 dark:border-slate-800/70
                 shadow-lg shadow-black/5 py-10 px-4 text-center"
                 >
@@ -567,7 +571,7 @@ function WatchlistPanel({ watchlist, selected, onSelect, onRemove }) {
                                 type="button"
                                 aria-pressed={isActive}
                                 className={
-                                    'w-full text-left rounded-xl p-3 border transition-all bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl shadow-lg shadow-black/5 ' +
+                                    'w-full text-left rounded-lg p-3 border transition-all bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl shadow-lg shadow-black/5 ' +
                                     (isActive
                                         ? 'border-orange-300/80 shadow-none dark:shadow-none'
                                         : 'border-slate-200/80 dark:border-slate-800 hover:border-orange-300 dark:hover:border-orange-500')
@@ -662,7 +666,7 @@ function StockInfoHeader({ stock, mddData, loadingMdd }) {
     const shareUrl = `https://divi-tracker.netlify.app/?ticker=${encodeURIComponent(stock.ticker)}`;
     const name = stock.displayName || stock.name || stock.ticker;
     const yieldStr = stock.dividendYield ? stock.dividendYield.toFixed(2) + '%' : '';
-    const shareText = `${name}(${stock.ticker}) 배당수익률 ${yieldStr}\n배당락일·배당금 실시간 조회 👇`;
+    const shareText = `${name}(${stock.ticker}) 배당수익률 ${yieldStr}\n배당락일·배당금 실시간 조회`;
     const threadsUrl = `https://www.threads.net/intent/post?text=${encodeURIComponent(shareText + '\n' + shareUrl)}`;
 
     const handleShare = async () => {
@@ -679,14 +683,11 @@ function StockInfoHeader({ stock, mddData, loadingMdd }) {
 
     return (
         <div>
-            <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/60 p-4 sm:p-5 shadow-2xl shadow-black/10">
+            <div className="dm-card p-4 sm:p-5">
                 <div className="flex flex-wrap items-start gap-x-4 sm:gap-x-6 gap-y-2">
                     <div className="flex items-center gap-3 min-w-0">
-                        <div
-                            className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600
-                flex items-center justify-center shadow-md flex-shrink-0"
-                        >
-                            <span className="text-white text-sm font-black">{stock.ticker.slice(0, 2)}</span>
+                        <div className="dm-brand-mark h-12 w-12">
+                            <span className="text-white dark:text-slate-950 text-sm font-black">{stock.ticker.slice(0, 2)}</span>
                         </div>
                         <div className="min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
@@ -699,7 +700,7 @@ function StockInfoHeader({ stock, mddData, loadingMdd }) {
                                             : 'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300')
                                     }
                                 >
-                                    {stock.country === 'US' ? '🇺🇸 미국' : '🇰🇷 한국'}
+                                    {stock.country === 'US' ? 'US 미국' : 'KR 한국'}
                                 </span>
                                 <FreqBadge freq={stock.frequency} />
                             </div>
@@ -773,9 +774,7 @@ function StockInfoHeader({ stock, mddData, loadingMdd }) {
             <div className="flex gap-2 mt-2 justify-end flex-wrap">
                 <button
                     onClick={handleShare}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold
-                        bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white
-                        shadow-sm transition-all hover:scale-105 active:scale-95"
+                    className="dm-primary-control py-1.5"
                 >
                     <Share2 className="w-3.5 h-3.5" />
                     공유하기
@@ -784,10 +783,7 @@ function StockInfoHeader({ stock, mddData, loadingMdd }) {
                     href={threadsUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold
-                        bg-slate-900 hover:bg-slate-700 dark:bg-white dark:hover:bg-slate-200
-                        text-white dark:text-slate-900
-                        shadow-sm transition-all hover:scale-105 active:scale-95"
+                    className="dm-control py-1.5"
                 >
                     <svg width="14" height="14" viewBox="0 0 192 192" fill="currentColor" aria-hidden="true">
                         <path d="M141.537 88.988a66 66 0 0 0-2.518-1.143c-1.482-27.307-16.403-42.94-41.457-43.1h-.34c-14.986 0-27.449 6.396-35.12 18.036l13.779 9.452c5.7-8.664 14.663-10.52 21.348-10.52h.23c8.249.053 14.474 2.452 18.502 7.13 2.932 3.405 4.893 8.111 5.864 14.05-7.314-1.245-15.224-1.628-23.693-1.14-23.794 1.372-39.094 15.377-38.108 34.8.498 9.836 5.443 18.296 13.932 23.822 7.16 4.697 16.382 6.993 25.944 6.48 12.638-.695 22.564-5.516 29.502-14.33 5.28-6.687 8.617-15.348 10.098-26.261 6.054 3.655 10.532 8.499 13.01 14.42 4.239 10.148 4.49 26.836-8.964 40.22-11.85 11.79-26.123 16.89-47.644 17.04-23.912-.168-41.974-7.839-53.692-22.8-10.976-14.007-16.642-34.208-16.838-60.043.196-25.835 5.862-46.036 16.838-60.043 11.718-14.961 29.78-22.632 53.692-22.8 24.076.17 42.37 7.881 54.434 22.92 5.981 7.468 10.469 16.98 13.393 28.19l16.212-4.326c-3.554-13.31-9.254-24.787-17.067-34.08C130.577 11.45 107.244 2.07 79.528 1.9h-.558C51.358 2.07 28.27 11.496 14.662 29.988 2.44 46.76-3.835 70.128-4 96.02l.003.562C-3.835 122.47 2.44 145.838 14.662 162.61c13.608 18.489 36.693 27.921 64.308 28.085h.558c24.547-.138 41.85-6.609 56.103-20.826 18.833-18.755 18.29-43.13 12.123-57.876-4.48-10.733-13.11-19.47-25.217-25.005Zm-44.258 43.871c-10.426.58-21.258-4.096-21.808-14.155-.395-7.399 5.274-15.656 22.38-16.619 1.958-.113 3.88-.168 5.768-.168 6.335 0 12.27.606 17.653 1.785-2.009 25.115-13.945 28.612-23.993 29.157Z" />
@@ -807,10 +803,7 @@ function MetricChip({ label, value, icon, highlight }) {
     };
     const valueColor = colorMap[highlight] || 'text-slate-800 dark:text-slate-200';
     return (
-        <div
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl
-        bg-white/60 dark:bg-slate-800/70 backdrop-blur border border-slate-200/80 dark:border-slate-700/60 shadow-sm"
-        >
+        <div className="flex items-center gap-1.5 rounded-lg border border-slate-200/80 bg-slate-50/80 px-3 py-2 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
             <span className="text-slate-400 dark:text-slate-500">{icon}</span>
             <div>
                 <p className="text-[10px] text-slate-400 dark:text-slate-500 leading-none">{label}</p>
@@ -855,7 +848,7 @@ function DividendTimeline({ stock }) {
     });
 
     return (
-        <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 p-4 sm:p-5 shadow-xl">
+        <div className="rounded-lg bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 p-4 sm:p-5 shadow-xl">
             <div className="flex items-center gap-2 mb-2 sm:mb-3">
                 <CalendarDays className="w-4 h-4 text-indigo-500" />
                 <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
@@ -889,7 +882,7 @@ function DividendTimeline({ stock }) {
                                     <div
                                         key={row.year + '-' + idx}
                                         className={
-                                            'rounded-xl border transition-colors ' +
+                                            'rounded-lg border transition-colors ' +
                                             (isCurrentMonth
                                                 ? 'border-indigo-400 dark:border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20'
                                                 : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60')
@@ -897,7 +890,7 @@ function DividendTimeline({ stock }) {
                                     >
                                         <div
                                             className={
-                                                'text-center py-1 text-[11px] font-semibold rounded-t-xl ' +
+                                                'text-center py-1 text-[11px] font-semibold rounded-t-lg ' +
                                                 (isCurrentMonth
                                                     ? 'text-indigo-700 dark:text-indigo-300 bg-indigo-100 dark:bg-indigo-900/40'
                                                     : 'text-slate-500 dark:text-slate-400')
@@ -985,7 +978,7 @@ function DividendTimeline({ stock }) {
 // ─────────────────────────────────────────────
 function DividendTable({ stock }) {
     return (
-        <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 shadow-xl overflow-hidden">
+        <div className="rounded-lg bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 shadow-xl overflow-hidden">
             <div className="flex items-center gap-2 px-5 py-3.5 border-b border-slate-100 dark:border-slate-700">
                 <Clock className="w-4 h-4 text-indigo-500" />
                 <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
@@ -1100,12 +1093,13 @@ function DpsBarChartTooltip({
     currency,
 }) {
     if (!active || !payload || !payload.length) return null;
+    const title = payload[0]?.payload?.label || label;
     return (
         <div
-            className="rounded-xl shadow-lg p-3 text-xs"
+            className="rounded-lg shadow-lg p-3 text-xs"
             style={{ background: tooltipBg, border: '1px solid ' + tooltipBorder, color: tooltipText }}
         >
-            <p className="font-semibold mb-1">{label}</p>
+            <p className="font-semibold mb-1">{title}</p>
             <p style={{ color: tooltipSubText }}>세후: {fmtNum(payload[0] && payload[0].value, currency)}</p>
         </div>
     );
@@ -1123,21 +1117,36 @@ function DpsBarChart({ stock }) {
     // 첫 배당 시점부터 최신 데이터까지 연속 시각화 (가능한 모든 이벤트 포함)
     const historyEvents = (stock.events || []).slice().sort((a, b) => parseDate(a.exDate) - parseDate(b.exDate));
 
-    const data = historyEvents.map((ev, i) => ({
-        label: `${i + 1}회 (${parseDate(ev.exDate).getFullYear()})`,
-        net: parseFloat((ev.dps * (1 - stock.taxRate)).toFixed(4)),
-    }));
+    const data = historyEvents.map((ev, i) => {
+        const exDate = parseDate(ev.exDate);
+        const year = exDate.getFullYear();
+        const month = exDate.getMonth() + 1;
+        return {
+            period: `${String(year).slice(2)}.${String(month).padStart(2, '0')}`,
+            label: `${i + 1}회 · ${year}.${String(month).padStart(2, '0')} 배당락`,
+            net: parseFloat((ev.dps * (1 - stock.taxRate)).toFixed(4)),
+        };
+    });
+    const xTickInterval = Math.max(0, Math.ceil(data.length / 6) - 1);
 
     return (
-        <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 p-5 shadow-xl">
+        <div className="rounded-lg bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 p-5 shadow-xl">
             <div className="flex items-center gap-2 mb-4">
                 <BarChart2 className="w-4 h-4 text-indigo-500" />
                 <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">회차별 주당 배당금 (세후)</h2>
             </div>
-            <ResponsiveContainer width="100%" height={180}>
-                <LineChart data={data} margin={{ top: 6, right: 12, left: 0, bottom: 0 }}>
+            <ResponsiveContainer width="100%" height={216}>
+                <LineChart data={data} margin={{ top: 6, right: 12, left: 0, bottom: 12 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
-                    <XAxis dataKey="label" tick={false} axisLine={false} tickLine={false} height={4} />
+                    <XAxis
+                        dataKey="period"
+                        tick={{ fill: axisColor, fontSize: 10 }}
+                        interval={xTickInterval}
+                        minTickGap={10}
+                        axisLine={false}
+                        tickLine={false}
+                        height={28}
+                    />
                     <YAxis
                         tick={{ fill: axisColor, fontSize: 10 }}
                         axisLine={false}
@@ -1392,7 +1401,7 @@ function PopularStocksGuide() {
     return (
         <section
             aria-label="인기 배당 ETF 및 배당주 가이드"
-            className="max-w-screen-lg w-full mx-auto px-3 sm:px-6 pb-6"
+            className="dm-shell-container pb-6"
         >
             <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3 px-1">
                 인기 배당 ETF · 배당주 가이드
@@ -1404,7 +1413,7 @@ function PopularStocksGuide() {
                 {POPULAR_ETF_DATA.map((s) => (
                     <article
                         key={s.ticker}
-                        className="rounded-xl border border-slate-200/80 dark:border-slate-800/60 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl shadow-sm p-4"
+                        className="dm-card p-4"
                     >
                         <div className="flex items-center gap-2 mb-2">
                             <span className="text-base font-black text-slate-900 dark:text-white">{s.ticker}</span>
@@ -1425,7 +1434,7 @@ function PopularStocksGuide() {
                 {POPULAR_KR_DATA.map((s) => (
                     <article
                         key={s.ticker}
-                        className="rounded-xl border border-slate-200/80 dark:border-slate-800/60 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl shadow-sm p-4"
+                        className="dm-card p-4"
                     >
                         <div className="flex items-center gap-2 mb-2">
                             <span className="text-base font-black text-slate-900 dark:text-white">{s.name}</span>
@@ -1446,7 +1455,7 @@ function PopularStocksGuide() {
 function FaqSection() {
     const [openIdx, setOpenIdx] = React.useState(null);
     return (
-        <section aria-label="자주 묻는 질문" className="max-w-screen-lg w-full mx-auto px-3 sm:px-6 pb-6">
+        <section aria-label="자주 묻는 질문" className="dm-shell-container pb-6">
             <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3 px-1">
                 자주 묻는 질문 (FAQ)
             </h2>
@@ -1456,7 +1465,7 @@ function FaqSection() {
                     return (
                         <div
                             key={idx}
-                            className="rounded-xl border border-slate-200/80 dark:border-slate-800/60 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl shadow-sm overflow-hidden"
+                            className="dm-card overflow-hidden"
                         >
                             <button
                                 onClick={() => setOpenIdx(isOpen ? null : idx)}
@@ -1496,9 +1505,9 @@ function LoadingSkeleton({ symbol }) {
             className="flex-1 w-full flex flex-col gap-4 min-w-0 animate-pulse"
         >
             {/* Header skeleton */}
-            <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/60 p-4 sm:p-5 shadow-xl">
+            <div className="rounded-lg bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/60 p-4 sm:p-5 shadow-xl">
                 <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-slate-200 dark:bg-slate-700" />
+                    <div className="w-12 h-12 rounded-lg bg-slate-200 dark:bg-slate-700" />
                     <div className="flex-1 space-y-2">
                         <div className="h-5 w-24 rounded bg-slate-200 dark:bg-slate-700" />
                         <div className="h-3 w-40 rounded bg-slate-200 dark:bg-slate-700" />
@@ -1506,21 +1515,21 @@ function LoadingSkeleton({ symbol }) {
                 </div>
                 <div className="flex gap-2 mt-4">
                     {[1, 2, 3].map((i) => (
-                        <div key={i} className="h-12 flex-1 rounded-xl bg-slate-200 dark:bg-slate-700" />
+                        <div key={i} className="h-12 flex-1 rounded-lg bg-slate-200 dark:bg-slate-700" />
                     ))}
                 </div>
             </div>
             {/* Chart skeleton */}
-            <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/60 p-4 sm:p-5 shadow-xl">
+            <div className="rounded-lg bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/60 p-4 sm:p-5 shadow-xl">
                 <div className="h-4 w-32 rounded bg-slate-200 dark:bg-slate-700 mb-3" />
                 <div className="h-[180px] rounded-lg bg-slate-200 dark:bg-slate-700" />
             </div>
             {/* Timeline skeleton */}
-            <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/60 p-4 sm:p-5 shadow-xl">
+            <div className="rounded-lg bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/60 p-4 sm:p-5 shadow-xl">
                 <div className="h-4 w-48 rounded bg-slate-200 dark:bg-slate-700 mb-3" />
                 <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-12 gap-1.5">
                     {Array.from({ length: 12 }, (_, i) => (
-                        <div key={i} className="h-16 rounded-xl bg-slate-200 dark:bg-slate-700" />
+                        <div key={i} className="h-16 rounded-lg bg-slate-200 dark:bg-slate-700" />
                     ))}
                 </div>
             </div>
@@ -1539,59 +1548,75 @@ function LoadingSkeleton({ symbol }) {
 // ─────────────────────────────────────────────
 // 13. EmptyState
 // ─────────────────────────────────────────────
-function EmptyState({ onPickTicker }) {
+function EmptyState({ onPickTicker, exchangeRate, exchangeRateUpdatedAt, exchangeRateSource }) {
+    const rateText =
+        exchangeRate == null
+            ? '환율 로드 중'
+            : `환율 기준 ₩${fmtExchangeRate(exchangeRate)}/USD`;
+    const rateMeta = exchangeRateUpdatedAt
+        ? ` · ${new Date(exchangeRateUpdatedAt).toLocaleTimeString('ko-KR', {
+              hour: '2-digit',
+              minute: '2-digit',
+          })}${exchangeRateSource ? ` · ${exchangeRateSource}` : ''}`
+        : '';
+
     return (
         <div className="flex-1">
-            <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/70 shadow-sm p-8">
-                <div className="flex items-start gap-4">
-                    <div className="w-11 h-11 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center">
-                        <Search className="w-6 h-6" />
-                    </div>
-                    <div className="flex-1 space-y-2">
-                        <div>
-                            <p className="text-xs uppercase tracking-[0.08em] text-slate-400">Getting Started</p>
-                            <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">
-                                실시간 티커 검색으로 바로 시작하세요
-                            </h2>
-                            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                                클라우드플레어 대시보드처럼 깔끔한 카드 뷰에서 배당락일, 지급일, DPS, 수익률을 한눈에
-                                확인할 수 있습니다.
-                            </p>
+            <div className="dm-card overflow-hidden">
+                <div>
+                    <div className="p-5 sm:p-7">
+                        <div className="mb-5 flex items-start gap-4">
+                            <div className="dm-brand-mark">
+                                <Search className="h-5 w-5" />
+                            </div>
+                            <div className="min-w-0">
+                                <p className="text-xs font-semibold uppercase text-orange-500">Dividend Dashboard</p>
+                                <h2 className="mt-1 text-2xl font-black text-slate-950 dark:text-white">
+                                    배당 일정과 수익률을 한 화면에서 확인하세요
+                                </h2>
+                                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
+                                    미국 ETF와 한국 종목을 검색하면 배당락일, 지급일, DPS, 세후 배당금, 구성종목까지 이어서 볼 수 있습니다.
+                                </p>
+                            </div>
                         </div>
-                        <div className="grid gap-3 sm:grid-cols-3">
+
+                        <div className="mb-5 grid gap-0 overflow-hidden rounded-lg border border-slate-200/80 dark:border-slate-800 sm:grid-cols-3">
                             {[
-                                '실시간 시세 / 배당 정보',
-                                '이전·현재 연도 배당 일정',
-                                '원/달러 자동 환산 및 세후 계산',
-                            ].map((item) => (
+                                ['검색', '티커와 종목명'],
+                                ['일정', '배당락일과 지급일'],
+                                ['분석', '세후 DPS와 MDD'],
+                            ].map(([label, value]) => (
                                 <div
-                                    key={item}
-                                    className="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 px-3 py-2 text-sm text-slate-700 dark:text-slate-200"
+                                    key={label}
+                                    className="border-b border-slate-200/80 px-4 py-3 last:border-b-0 dark:border-slate-800 sm:border-b-0 sm:border-r sm:last:border-r-0"
                                 >
-                                    {item}
+                                    <p className="text-[11px] font-semibold text-slate-400">{label}</p>
+                                    <p className="mt-1 text-sm font-bold text-slate-800 dark:text-slate-100">{value}</p>
                                 </div>
                             ))}
                         </div>
+
                         <div className="flex items-center gap-2 flex-wrap">
                             <button
                                 onClick={() => document.querySelector('input[type="text"]')?.focus()}
-                                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-orange-500 hover:bg-orange-600 shadow-sm"
+                                className="dm-primary-control text-sm"
                             >
                                 <Search className="w-4 h-4" />
-                                티커 검색 시작하기
+                                티커 검색 시작
                             </button>
-                            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                                <span className="w-2 h-2 rounded-full bg-emerald-500" /> 실시간 Yahoo Finance 데이터
-                            </div>
+                            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                                {rateText}{rateMeta}
+                            </span>
                         </div>
-                        <div className="flex flex-wrap gap-2 pt-2">
+
+                        <div className="flex flex-wrap gap-2 pt-5">
                             <span className="text-xs text-slate-400 w-full">추천 티커</span>
                             {PRESET_TICKERS.map((t) => (
                                 <button
                                     key={t}
                                     type="button"
                                     onClick={() => onPickTicker && onPickTicker(t)}
-                                    className="px-3 py-1 rounded-full text-xs font-medium bg-white/70 dark:bg-slate-900/70 backdrop-blur border border-white/60 dark:border-slate-800/70 text-slate-700 dark:text-slate-200 hover:border-orange-300 dark:hover:border-orange-500 hover:text-orange-600 dark:hover:text-orange-300 transition-colors shadow-sm"
+                                    className="rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-xs font-semibold text-slate-700 shadow-sm transition-colors hover:border-orange-300 hover:text-orange-600 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200 dark:hover:border-orange-500 dark:hover:text-orange-300"
                                 >
                                     {t}
                                 </button>
@@ -1641,7 +1666,7 @@ function EtpHoldingsContainer({ stock, holdingsData, loading }) {
     ];
 
     return (
-        <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 p-4 sm:p-5 shadow-xl">
+        <div className="rounded-lg bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 p-4 sm:p-5 shadow-xl">
             <div className="flex items-center gap-2 mb-4">
                 <BarChart2 className="w-4 h-4 text-indigo-500" />
                 <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
@@ -1826,7 +1851,7 @@ function CapexContainer({ stock, capexData, loading }) {
     const gridColor = dark ? '#1e293b' : '#f1f5f9';
 
     return (
-        <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 p-4 sm:p-5 shadow-xl">
+        <div className="rounded-lg bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 p-4 sm:p-5 shadow-xl">
             <div className="flex items-center gap-2 mb-3">
                 <Factory className="w-4 h-4 text-orange-500" />
                 <h2 className="font-semibold text-slate-800 dark:text-slate-100 text-sm">설비투자 (CAPEX)</h2>
@@ -1936,6 +1961,231 @@ function CapexContainer({ stock, capexData, loading }) {
     );
 }
 
+function getKrEtfTaxProfile(stock) {
+    const region = stock.etfMarket || '';
+    const assetType = stock.etfAssetType || '';
+    const taxType = stock.etfTaxType || '';
+    const hasHoldingPeriodTax = taxType.includes('보유기간과세');
+    const hasSeparateTax = taxType.includes('분리과세');
+    const hasTaxExempt = taxType.includes('비과세');
+    const isOverseas = region.includes('해외');
+    const isMixedAsset = assetType.includes('혼합');
+
+    let gain = '상품 구조별 과세 확인 필요';
+    if (hasHoldingPeriodTax) {
+        gain = '보유기간 과표증분 15.4%';
+    } else if (hasSeparateTax) {
+        gain = '분리과세 대상 가능';
+    } else if (hasTaxExempt) {
+        gain = '국내주식형 매매차익 비과세 가능';
+    }
+
+    const classification = [region, assetType, taxType].filter(Boolean).join(' · ') || 'ETF 세부 분류 미확인';
+    const checkpoint = taxType
+        ? `${classification}${isMixedAsset ? ' · 혼합자산 편입비중 확인' : ''}`
+        : `${classification} · 운용사 투자설명서 확인`;
+
+    return {
+        region,
+        assetType,
+        taxType,
+        classification,
+        dividend: isOverseas ? '분배금 15.4% 원천징수, 해외원천세 영향 가능' : '분배금 15.4% 원천징수',
+        gain,
+        isaDividend: 'ISA 순이익에 포함',
+        isaGain: hasHoldingPeriodTax ? '보유기간과세 손익도 ISA 손익통산' : 'ETF 매매손익 ISA 손익통산',
+        pensionNote: `${region || '국내상장'} ETF · 연금계좌 편입 가능 여부 확인`,
+        checkpoint,
+    };
+}
+
+function getTaxComparisonRows(stock) {
+    const isUS = stock.country === 'US';
+    const isETF = stock.quoteType === 'ETF' || stock.quoteType === 'MUTUALFUND';
+    const krEtfTax = !isUS && isETF ? getKrEtfTaxProfile(stock) : null;
+
+    return [
+        {
+            account: '일반주식계좌',
+            dividend: krEtfTax ? krEtfTax.dividend : isUS ? '미국 원천 15% 중심' : '15.4% 원천징수',
+            gain: isUS
+                ? '연 250만원 공제 후 22%'
+                : krEtfTax
+                  ? krEtfTax.gain
+                : isETF
+                  ? '상품 구조별 15.4% 가능'
+                  : '상장 소액주주 통상 비과세',
+            note: krEtfTax ? krEtfTax.checkpoint : '금융소득 2천만원 초과 시 종합과세 가능',
+        },
+        {
+            account: 'ISA계좌',
+            dividend: krEtfTax ? krEtfTax.isaDividend : '순이익 200만원 비과세, 초과 9.9%',
+            gain: krEtfTax ? krEtfTax.isaGain : '손익통산 후 200만원 비과세, 초과 9.9%',
+            note: krEtfTax
+                ? '만기 순이익 일반형 200만원 비과세, 초과 9.9%'
+                : isUS
+                ? '해외상장 직접투자는 제한, 국내상장 대체 ETF 기준'
+                : '서민형은 비과세 한도 400만원',
+        },
+        {
+            account: '연금저축계좌',
+            dividend: '계좌 내 과세이연, 연금수령 3.3~5.5%',
+            gain: '계좌 내 과세이연, 연금수령 3.3~5.5%',
+            note: krEtfTax
+                ? krEtfTax.pensionNote
+                : isETF
+                ? '국내상장 ETF/펀드 중심, 연금외수령 16.5% 가능'
+                : '개별주식 직접투자는 제한, 펀드/ETF 운용 중심',
+        },
+    ];
+}
+
+function getTaxAccountTone(index) {
+    const tones = [
+        {
+            accent: 'border-orange-200 bg-orange-50/70 text-orange-700 dark:border-orange-900/50 dark:bg-orange-950/20 dark:text-orange-300',
+            dot: 'bg-orange-500',
+            line: 'from-orange-500/70 to-orange-200 dark:to-orange-900',
+        },
+        {
+            accent: 'border-emerald-200 bg-emerald-50/70 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/20 dark:text-emerald-300',
+            dot: 'bg-emerald-500',
+            line: 'from-emerald-500/70 to-emerald-200 dark:to-emerald-900',
+        },
+        {
+            accent: 'border-sky-200 bg-sky-50/70 text-sky-700 dark:border-sky-900/50 dark:bg-sky-950/20 dark:text-sky-300',
+            dot: 'bg-sky-500',
+            line: 'from-sky-500/70 to-sky-200 dark:to-sky-900',
+        },
+    ];
+    return tones[index % tones.length];
+}
+
+function TaxFlowCard({ row, index }) {
+    const tone = getTaxAccountTone(index);
+    const steps = [
+        { label: '배당·분배금', value: row.dividend, icon: <DollarSign className="h-3.5 w-3.5" /> },
+        { label: '차익', value: row.gain, icon: <TrendingUp className="h-3.5 w-3.5" /> },
+    ];
+
+    return (
+        <div className="rounded-lg border border-slate-200/80 bg-white/75 p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900/55">
+            <div className="mb-3 flex items-center justify-between gap-2">
+                <div className="flex min-w-0 items-center gap-2">
+                    <span className={`h-2.5 w-2.5 rounded-full ${tone.dot}`} />
+                    <h3 className="truncate text-sm font-bold text-slate-800 dark:text-slate-100">{row.account}</h3>
+                </div>
+                <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${tone.accent}`}>
+                    계좌 {index + 1}
+                </span>
+            </div>
+
+            <div className="relative grid gap-3 md:grid-cols-[1fr_auto_1fr_auto_1fr] md:items-stretch">
+                <div className="rounded-lg border border-slate-100 bg-slate-50/80 p-3 dark:border-slate-800 dark:bg-slate-950/35">
+                    <p className="text-[10px] font-semibold uppercase text-slate-400 dark:text-slate-500">수익 구분</p>
+                    <div className="mt-2 grid gap-2">
+                        {steps.map((step) => (
+                            <div key={step.label} className="flex items-center gap-2 rounded-md bg-white px-2.5 py-2 text-xs text-slate-600 shadow-sm dark:bg-slate-900 dark:text-slate-300">
+                                <span className="text-slate-400 dark:text-slate-500">{step.icon}</span>
+                                <span className="font-semibold">{step.label}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="hidden items-center md:flex" aria-hidden>
+                    <div className={`h-px w-8 bg-gradient-to-r ${tone.line}`} />
+                </div>
+
+                <div className="rounded-lg border border-slate-100 bg-slate-50/80 p-3 dark:border-slate-800 dark:bg-slate-950/35">
+                    <p className="text-[10px] font-semibold uppercase text-slate-400 dark:text-slate-500">과세 방식</p>
+                    <div className="mt-2 grid gap-2">
+                        {steps.map((step) => (
+                            <div key={step.label} className="rounded-md bg-white px-2.5 py-2 shadow-sm dark:bg-slate-900">
+                                <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500">{step.label}</p>
+                                <p className="mt-0.5 text-xs font-semibold leading-5 text-slate-700 dark:text-slate-200">
+                                    {step.value}
+                                </p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="hidden items-center md:flex" aria-hidden>
+                    <div className={`h-px w-8 bg-gradient-to-r ${tone.line}`} />
+                </div>
+
+                <div className={`rounded-lg border p-3 ${tone.accent}`}>
+                    <p className="text-[10px] font-semibold uppercase opacity-75">확인 포인트</p>
+                    <p className="mt-2 text-xs font-semibold leading-5">{row.note}</p>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function TaxComparisonPanel({ stock }) {
+    const rows = getTaxComparisonRows(stock);
+    const isUS = stock.country === 'US';
+    const isETF = stock.quoteType === 'ETF' || stock.quoteType === 'MUTUALFUND';
+    const krEtfTax = !isUS && isETF ? getKrEtfTaxProfile(stock) : null;
+    const assetType = krEtfTax
+        ? `한국 ETF · ${krEtfTax.classification}`
+        : `${isUS ? '미국' : '한국'} ${isETF ? 'ETF/펀드' : '주식'}`;
+
+    return (
+        <div className="dm-card overflow-hidden">
+            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-4 py-3.5 dark:border-slate-800 sm:px-5">
+                <div className="flex min-w-0 items-start gap-2">
+                    <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-orange-500" />
+                    <div className="min-w-0">
+                        <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                            계좌유형별 과세율 비교
+                        </h2>
+                        <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                            조회 종목 기준: {assetType} · 일반 요약
+                        </p>
+                    </div>
+                </div>
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                    {getToday().toISOString().slice(0, 10)} 기준
+                </span>
+            </div>
+
+            <div className="space-y-3 px-4 py-4 sm:px-5">
+                {krEtfTax && (
+                    <div className="flex flex-wrap gap-2">
+                        {[
+                            ['투자지역', krEtfTax.region || '미확인'],
+                            ['자산분류', krEtfTax.assetType || '미확인'],
+                            ['과세유형', krEtfTax.taxType || '미확인'],
+                        ].map(([label, value]) => (
+                            <span
+                                key={label}
+                                className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+                            >
+                                <span className="text-slate-400 dark:text-slate-500">{label}</span>
+                                {value}
+                            </span>
+                        ))}
+                    </div>
+                )}
+
+                <div className="space-y-3">
+                    {rows.map((row, index) => (
+                        <TaxFlowCard key={row.account} row={row} index={index} />
+                    ))}
+                </div>
+            </div>
+
+            <div className="border-t border-slate-100 bg-slate-50/70 px-4 py-3 text-[11px] leading-5 text-slate-500 dark:border-slate-800 dark:bg-slate-950/40 dark:text-slate-400 sm:px-5">
+                실제 세금은 거주자 여부, 금융소득 합계, 손익통산, 상품 편입자산, 중도해지 여부에 따라 달라질 수 있습니다.
+                투자 판단 전 증권사 과세 안내와 세무 전문가 확인이 필요합니다.
+            </div>
+        </div>
+    );
+}
+
 // ─────────────────────────────────────────────
 // 13. StockDetailView
 // ─────────────────────────────────────────────
@@ -1968,6 +2218,7 @@ function StockDetailView({ stock, holdingsData, loadingHoldings, capexData, load
         <div className="flex-1 w-full flex flex-col gap-4 min-w-0">
             <StockJsonLd stock={stock} />
             <StockInfoHeader stock={stock} mddData={mddData} loadingMdd={loadingMdd} />
+            <TaxComparisonPanel stock={stock} />
             <DpsBarChart stock={stock} />
             <DividendTimeline stock={stock} />
             <CapexContainer stock={stock} capexData={capexData} loading={loadingCapex} />
@@ -2061,14 +2312,12 @@ function EtfExplorerPage({ onBack, krEtfs, krDataReady }) {
     };
 
     return (
-        <main className="flex-1 max-w-screen-lg w-full mx-auto px-3 sm:px-6 py-4 sm:py-6">
+        <main className="dm-shell-container flex-1 py-4 sm:py-6">
             {/* 상단 헤더 */}
             <div className="flex items-center gap-3 mb-5">
                 <button
                     onClick={onBack}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium
-                        bg-white/70 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700
-                        text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                    className="dm-control py-1.5"
                 >
                     ← 뒤로
                 </button>
@@ -2089,7 +2338,7 @@ function EtfExplorerPage({ onBack, krEtfs, krDataReady }) {
                     <button
                         key={v.id}
                         onClick={() => setView(v.id)}
-                        className={`px-4 py-2 rounded-xl text-sm font-semibold border transition-all
+                        className={`px-4 py-2 rounded-lg text-sm font-semibold border transition-all
                             ${view === v.id
                                 ? 'bg-indigo-600 border-indigo-500 text-white shadow-md'
                                 : 'bg-white/70 dark:bg-slate-800/70 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-slate-700'
@@ -2126,7 +2375,7 @@ function EtfExplorerPage({ onBack, krEtfs, krDataReady }) {
                                     });
                                     setActiveFund(f.id);
                                 }}
-                                className={`px-4 py-2 rounded-xl text-sm font-semibold border transition-all
+                                className={`px-4 py-2 rounded-lg text-sm font-semibold border transition-all
                                     ${
                                         activeFund === f.id
                                             ? 'bg-indigo-600 border-indigo-500 text-white shadow-md'
@@ -2145,7 +2394,7 @@ function EtfExplorerPage({ onBack, krEtfs, krDataReady }) {
 
                     {/* 로딩 */}
                     {isLoading && (
-                        <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 p-6 shadow-xl">
+                        <div className="rounded-lg bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 p-6 shadow-xl">
                             <div className="space-y-3 animate-pulse">
                                 {[...Array(8)].map((_, i) => (
                                     <div key={i} className="flex gap-3 items-center">
@@ -2166,7 +2415,7 @@ function EtfExplorerPage({ onBack, krEtfs, krDataReady }) {
 
                     {/* 에러 */}
                     {!isLoading && error && (
-                        <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 border border-red-200 dark:border-red-800/40 p-6 shadow-xl flex items-center gap-3">
+                        <div className="rounded-lg bg-white/60 dark:bg-slate-900/60 border border-red-200 dark:border-red-800/40 p-6 shadow-xl flex items-center gap-3">
                             <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
                             <div className="flex-1">
                                 <p className="text-sm font-semibold text-red-600 dark:text-red-400">데이터 로딩 실패</p>
@@ -2188,7 +2437,7 @@ function EtfExplorerPage({ onBack, krEtfs, krDataReady }) {
                     {/* 구성종목 테이블 */}
                     {!isLoading && current && (
                         <>
-                            <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 shadow-xl mb-4 overflow-hidden">
+                            <div className="rounded-lg bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 shadow-xl mb-4 overflow-hidden">
                                 <div className="px-4 sm:px-5 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
                                     <div className="flex items-center gap-2">
                                         <BarChart2 className="w-4 h-4 text-indigo-500" />
@@ -2284,7 +2533,7 @@ function EtfExplorerPage({ onBack, krEtfs, krDataReady }) {
 function EtfTradesSection({ trades, fund, note }) {
     if (note && !trades?.length) {
         return (
-            <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 p-5 shadow-xl">
+            <div className="rounded-lg bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 p-5 shadow-xl">
                 <div className="flex items-center gap-2 mb-2">
                     <Clock className="w-4 h-4 text-amber-500" />
                     <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">최근 매매 내역</h2>
@@ -2297,7 +2546,7 @@ function EtfTradesSection({ trades, fund, note }) {
     if (!trades?.length) return null;
 
     return (
-        <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 shadow-xl overflow-hidden">
+        <div className="rounded-lg bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 shadow-xl overflow-hidden">
             <div className="px-4 sm:px-5 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center gap-2">
                 <Clock className="w-4 h-4 text-amber-500" />
                 <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
@@ -2464,10 +2713,7 @@ function EtfSearchView({ krEtfs, krDataReady }) {
     return (
         <div>
             <div ref={wrapRef} className="relative mb-5">
-                <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl
-                    bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl
-                    border border-slate-200/80 dark:border-slate-800/70
-                    shadow-lg focus-within:ring-2 focus-within:ring-indigo-400 transition-all">
+                <div className="dm-search-shell">
                     <Search className="w-4 h-4 text-slate-400 flex-shrink-0" />
                     <input
                         type="text"
@@ -2481,13 +2727,13 @@ function EtfSearchView({ krEtfs, krDataReady }) {
                     />
                     {query && (
                         <button onClick={() => { setQuery(''); setOpen(false); }}
-                            className="text-slate-400 hover:text-indigo-500 transition-colors">
+                            className="text-slate-400 hover:text-orange-500 transition-colors">
                             <X className="w-3.5 h-3.5" />
                         </button>
                     )}
                 </div>
                 {open && (merged.length > 0 || loadingSuggest) && (
-                    <ul className="absolute top-full mt-2 left-0 right-0 z-50 rounded-2xl shadow-2xl
+                    <ul className="absolute top-full mt-2 left-0 right-0 z-50 rounded-lg shadow-2xl
                         bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl
                         border border-slate-200/80 dark:border-slate-800/70 overflow-hidden"
                         role="listbox">
@@ -2502,9 +2748,9 @@ function EtfSearchView({ krEtfs, krDataReady }) {
                                         hover:bg-indigo-50 dark:hover:bg-slate-700 transition-colors
                                         border-b border-slate-100 dark:border-slate-800 last:border-0"
                                 >
-                                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600
+                                    <div className="w-8 h-8 rounded-lg bg-slate-950 dark:bg-white
                                         flex items-center justify-center flex-shrink-0 text-white text-xs font-bold">
-                                        {item.symbol.slice(0, 2)}
+                                        <span className="text-white dark:text-slate-950">{item.symbol.slice(0, 2)}</span>
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">
@@ -2539,7 +2785,7 @@ function EtfSearchView({ krEtfs, krDataReady }) {
             )}
 
             {loadingHoldings && (
-                <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 border
+                <div className="rounded-lg bg-white/60 dark:bg-slate-900/60 border
                     border-slate-200/80 dark:border-slate-800/70 p-6 shadow-xl">
                     <div className="flex flex-col sm:flex-row gap-6 animate-pulse">
                         <div className="w-52 h-52 rounded-full bg-slate-200 dark:bg-slate-700 mx-auto sm:mx-0 flex-shrink-0" />
@@ -2554,7 +2800,7 @@ function EtfSearchView({ krEtfs, krDataReady }) {
             )}
 
             {!loadingHoldings && holdingsError && (
-                <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 border border-red-200
+                <div className="rounded-lg bg-white/60 dark:bg-slate-900/60 border border-red-200
                     dark:border-red-800/40 p-5 shadow-xl flex items-center gap-3">
                     <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
                     <div className="flex-1">
@@ -2572,7 +2818,7 @@ function EtfSearchView({ krEtfs, krDataReady }) {
             )}
 
             {!loadingHoldings && holdingsData?.holdings?.length > 0 && (
-                <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl
+                <div className="rounded-lg bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl
                     border border-slate-200/80 dark:border-slate-800/70 shadow-xl overflow-hidden">
                     <div className="p-4 sm:p-5 flex flex-col sm:flex-row gap-4 sm:gap-8 items-center sm:items-start">
                         <div className="w-full sm:w-56 flex-shrink-0">
@@ -2594,7 +2840,7 @@ function EtfSearchView({ krEtfs, krDataReady }) {
                                             if (!active || !payload?.length) return null;
                                             const { name, ticker, value } = payload[0].payload;
                                             return (
-                                                <div className="rounded-xl border px-3 py-2 text-xs shadow-xl
+                                                <div className="rounded-lg border px-3 py-2 text-xs shadow-xl
                                                     bg-white dark:bg-slate-900
                                                     border-slate-200 dark:border-slate-700
                                                     text-slate-800 dark:text-slate-200">
@@ -2675,7 +2921,7 @@ function EtfSearchView({ krEtfs, krDataReady }) {
             )}
 
             {!selectedEtf && !loadingHoldings && (
-                <div className="rounded-2xl bg-white/60 dark:bg-slate-900/60 border
+                <div className="rounded-lg bg-white/60 dark:bg-slate-900/60 border
                     border-slate-200/80 dark:border-slate-800/70 p-12 shadow-xl
                     flex flex-col items-center gap-3 text-slate-400 dark:text-slate-500">
                     <Search className="w-10 h-10 opacity-30" />
@@ -2740,6 +2986,7 @@ function DashboardApp() {
     const [loadingSymbol, setLoadingSymbol] = useState(null);
     const [exchangeRate, setExchangeRate] = useState(null);
     const [exchangeRateUpdatedAt, setExchangeRateUpdatedAt] = useState(null);
+    const [exchangeRateSource, setExchangeRateSource] = useState(null);
     const [etpHoldings, setEtpHoldings] = useState({});
     const [loadingHoldings, setLoadingHoldings] = useState(null);
     const etpHoldingsFetchedRef = useRef(new Set());
@@ -2931,15 +3178,32 @@ function DashboardApp() {
             let resolvedSymbol = normalized;
             let krShortName = null;
             let krLongName = null;
+            let krCsvMatch = null;
+            let krEtfMeta = null;
+
+            const applyKrCsvMatch = (match) => {
+                if (!match) return;
+                krCsvMatch = match;
+                krShortName = krShortName || match.shortName || match.name || null;
+                krLongName = krLongName || match.name || null;
+                if (match.type === 'ETF') {
+                    krEtfMeta = {
+                        etfMarket: match.market || '',
+                        etfAssetType: match.assetType || '',
+                        etfTaxType: match.taxType || '',
+                        etfListingType: match.listingType || '',
+                        etfReplicationType: match.replicationType || '',
+                        etfManager: match.manager || '',
+                        etfTotalExpense: match.totalExpense || '',
+                    };
+                }
+            };
 
             // ── CSV 로컬 선행 조회: 6자리 코드 기반 한글명 확보 ──
             const csvSixDigit = extractSixDigit(raw) || extractSixDigit(normalized);
             if (csvSixDigit) {
                 const csvMatch = [...krStocks, ...krEtfs].find((s) => s.code === csvSixDigit);
-                if (csvMatch) {
-                    krShortName = csvMatch.shortName || csvMatch.name || null;
-                    krLongName = csvMatch.name || null;
-                }
+                applyKrCsvMatch(csvMatch);
             }
             if (/[가-힣]/.test(raw) || /\s/.test(raw)) {
                 try {
@@ -2995,6 +3259,11 @@ function DashboardApp() {
                 break;
             }
             if (!quote) throw new Error('실시간 시세 조회 실패');
+
+            const resolvedSixDigit = extractSixDigit(resolvedSymbol);
+            if (resolvedSixDigit) {
+                applyKrCsvMatch([...krStocks, ...krEtfs].find((s) => s.code === resolvedSixDigit));
+            }
 
             const sd = quote._summaryDetail ?? {};
             const ce = quote._calendarEvents ?? {};
@@ -3081,8 +3350,8 @@ function DashboardApp() {
             ]
                 .map((v) => (v == null ? '' : v.toString().trim()))
                 .filter((v) => v.length > 0);
-            const quoteType = quote.quoteType || '';
-            const sector = quote.market || quoteType || 'N/A';
+            const quoteType = krEtfMeta ? 'ETF' : quote.quoteType || '';
+            const sector = krEtfMeta?.etfAssetType || quote.market || quoteType || 'N/A';
 
             if (events.length === 0) {
                 try {
@@ -3163,6 +3432,13 @@ function DashboardApp() {
                 country,
                 currency,
                 quoteType,
+                ...(krCsvMatch
+                    ? {
+                          krListingName: krCsvMatch.name || '',
+                          krShortName: krCsvMatch.shortName || '',
+                      }
+                    : {}),
+                ...(krEtfMeta || {}),
                 currentPrice: Number(price) || 0,
                 dividendYield: Number(dividendYield.toFixed(2)),
                 annualDPS: Number(annualDPS) || 0,
@@ -3176,40 +3452,25 @@ function DashboardApp() {
         [krStocks, krEtfs],
     );
 
-    const fetchExchangeRate = useCallback(async () => {
-        const tryFetch = async (url, extract) => {
-            const res = await fetch(url);
+    const fetchExchangeRate = useCallback(async (signal) => {
+        try {
+            const res = await fetch('/api/exchange-rate', {
+                signal,
+                cache: 'no-store',
+                headers: { Accept: 'application/json' },
+            });
             if (!res.ok) throw new Error('fx fetch failed');
-            let data = null;
-            try {
-                data = await res.json();
-            } catch (_) {
-                return null;
-            }
-            const val = extract(data);
-            const next = Number(val);
-            if (Number.isFinite(next) && next > 0) return next;
+            const data = await res.json();
+            const next = Number(data?.rate);
+            if (!Number.isFinite(next) || next <= 0) throw new Error('invalid fx rate');
+            setExchangeRate(next);
+            setExchangeRateUpdatedAt(data.fetchedAt || new Date().toISOString());
+            setExchangeRateSource(data.source || 'live');
+            return next;
+        } catch (err) {
+            if (err.name !== 'AbortError') console.warn('exchange rate fetch failed', err);
             return null;
-        };
-
-        const pipelines = [
-            () => tryFetch('https://api.exchangerate.host/latest?base=USD&symbols=KRW', (d) => d?.rates?.KRW),
-            () => tryFetch('https://open.er-api.com/v6/latest/USD', (d) => d?.rates?.KRW),
-        ];
-
-        for (const fn of pipelines) {
-            try {
-                const rate = await fn();
-                if (Number.isFinite(rate) && rate > 0) {
-                    setExchangeRate(rate);
-                    setExchangeRateUpdatedAt(new Date().toISOString());
-                    return rate;
-                }
-            } catch (err) {
-                console.warn('exchange rate fetch failed', err);
-            }
         }
-        return null;
     }, []);
 
     const handleFetchLive = useCallback(
@@ -3400,7 +3661,16 @@ function DashboardApp() {
     }, []);
 
     useEffect(() => {
-        fetchExchangeRate();
+        const controller = new AbortController();
+        fetchExchangeRate(controller.signal);
+        const timer = setInterval(() => {
+            fetchExchangeRate();
+        }, 10 * 60 * 1000);
+
+        return () => {
+            controller.abort();
+            clearInterval(timer);
+        };
     }, [fetchExchangeRate]);
 
     const handleRemove = useCallback((ticker) => {
@@ -3458,27 +3728,26 @@ function DashboardApp() {
         window.history.replaceState(null, '', window.location.pathname + newSearch);
     }, [selected, currentPage]);
 
-    const rateDisplay = (exchangeRate ?? DEFAULT_EXCHANGE_RATE).toLocaleString();
-    const rateSuffix = exchangeRate == null ? ' (기본)' : '';
+    const rateDisplay = exchangeRate == null ? null : fmtExchangeRate(exchangeRate);
+    const rateSuffix = '';
+    const rateMeta = exchangeRateUpdatedAt
+        ? ` · 실시간 ${new Date(exchangeRateUpdatedAt).toLocaleTimeString('ko-KR', {
+              hour: '2-digit',
+              minute: '2-digit',
+          })}${exchangeRateSource ? ` · ${exchangeRateSource}` : ''}`
+        : '';
 
     return (
-        <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 via-white to-slate-200 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 relative overflow-hidden">
+        <div className="dm-app-shell">
             <KakaoShareButton />
-            <div className="pointer-events-none absolute inset-0">
-                <div className="absolute -top-16 -left-16 w-60 h-60 bg-white/30 dark:bg-indigo-500/10 rounded-full blur-3xl" />
-                <div className="absolute -bottom-14 -right-14 w-64 h-64 bg-orange-200/30 dark:bg-amber-500/10 rounded-full blur-3xl" />
-            </div>
-            <header
-                className="sticky top-0 z-40 bg-white/60 dark:bg-slate-900/50 backdrop-blur-xl
-            border-b border-slate-200/80 dark:border-slate-800/60 shadow-lg"
-            >
-                <div className="max-w-screen-lg w-full mx-auto px-3 sm:px-6 py-1.5 sm:py-2.5 flex flex-wrap sm:flex-nowrap items-center gap-x-2.5 gap-y-2 sm:gap-4">
+            <header className="dm-topbar">
+                <div className="dm-shell-container py-2.5 flex flex-wrap sm:flex-nowrap items-center gap-x-2.5 gap-y-2 sm:gap-4">
                     <div
                         className="flex items-center gap-2.5 flex-shrink-0 cursor-pointer select-none"
                         onClick={() => { setSelected(null); setCurrentPage('main'); }}
                     >
-                        <div className="w-9 h-9 rounded-lg bg-orange-500 flex items-center justify-center shadow-sm">
-                            <TrendingUp className="w-4 h-4 text-white" />
+                        <div className="dm-brand-mark">
+                            <TrendingUp className="w-4 h-4" />
                         </div>
                         <div className="hidden sm:block leading-tight">
                             <p className="text-sm font-black text-slate-900 dark:text-white">배당의 민족</p>
@@ -3491,12 +3760,11 @@ function DashboardApp() {
                         {/* ETF 탐색기 탭 버튼 */}
                         <button
                             onClick={() => setCurrentPage(currentPage === 'etf-explorer' ? 'main' : 'etf-explorer')}
-                            className={`flex items-center gap-1.5 px-2.5 py-2 sm:px-3 rounded-lg text-xs font-medium
-                                border transition-colors shadow-sm
+                            className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-semibold transition-colors sm:px-3
                                 ${
                                     currentPage === 'etf-explorer'
-                                        ? 'bg-indigo-600 border-indigo-500 text-white hover:bg-indigo-700'
-                                        : 'bg-white/70 dark:bg-slate-900/70 backdrop-blur border-white/60 dark:border-slate-800/70 text-slate-700 dark:text-slate-300 hover:bg-indigo-50/80 dark:hover:bg-slate-800'
+                                        ? 'border-orange-500 bg-orange-500 text-white hover:bg-orange-600'
+                                        : 'border-slate-200/80 bg-white/80 text-slate-700 hover:border-orange-300 hover:bg-orange-50/80 dark:border-slate-800/80 dark:bg-slate-900/70 dark:text-slate-300 dark:hover:border-orange-500/70 dark:hover:bg-slate-800'
                                 }`}
                         >
                             <BarChart2 className="w-3.5 h-3.5" />
@@ -3505,9 +3773,7 @@ function DashboardApp() {
 
                         <button
                             onClick={toggle}
-                            className="flex items-center gap-1.5 px-2.5 py-2 sm:px-3 rounded-lg text-xs font-medium
-                      bg-white/70 dark:bg-slate-900/70 backdrop-blur border border-white/60 dark:border-slate-800/70 text-slate-700 dark:text-slate-300
-                      hover:bg-orange-50/80 dark:hover:bg-slate-800 transition-colors shadow-sm"
+                            className="dm-control px-2.5 sm:px-3"
                         >
                             {dark ? (
                                 <Sun className="w-3.5 h-3.5 text-amber-400" />
@@ -3539,12 +3805,8 @@ function DashboardApp() {
                     krDataReady={krDataReady}
                 />
             ) : (
-                <main className="flex-1 max-w-screen-lg w-full mx-auto px-3 sm:px-6 py-3 sm:py-6 relative overflow-x-hidden">
-                    <div
-                        className="absolute inset-0 rounded-[24px] bg-white/18 dark:bg-slate-900/18 blur-3xl"
-                        aria-hidden
-                    />
-                    <div className="relative w-full max-w-full overflow-hidden rounded-[22px] border border-slate-200/80 dark:border-slate-800/60 bg-white/70 dark:bg-slate-900/55 backdrop-blur-2xl shadow-2xl shadow-black/10 p-3 sm:p-6">
+                <main className="dm-shell-container flex-1 py-3 sm:py-6 relative overflow-x-hidden">
+                    <div className="dm-panel relative w-full max-w-full overflow-hidden p-3 sm:p-6">
                         <div className="flex w-full min-w-0 flex-col xl:flex-row gap-5 items-start">
                             <WatchlistPanel
                                 watchlist={watchlist}
@@ -3566,7 +3828,12 @@ function DashboardApp() {
                                 />
                             ) : (
                                 <div className="flex-1">
-                                    <EmptyState onPickTicker={handleFetchLive} />
+                                    <EmptyState
+                                        onPickTicker={handleFetchLive}
+                                        exchangeRate={exchangeRate}
+                                        exchangeRateUpdatedAt={exchangeRateUpdatedAt}
+                                        exchangeRateSource={exchangeRateSource}
+                                    />
                                 </div>
                             )}
                         </div>
@@ -3580,7 +3847,7 @@ function DashboardApp() {
 
             <footer className="border-t border-slate-200 dark:border-slate-800 py-3 px-6 mb-[58px]">
                 <p className="text-center text-xs text-slate-400 dark:text-slate-600">
-                    Dividend Master · 환율 ₩{rateDisplay}/USD{rateSuffix} · 기준일 {getToday().toISOString().slice(0, 10)}
+                    Dividend Master · {rateDisplay ? `환율 ₩${rateDisplay}/USD${rateSuffix}${rateMeta}` : '환율 로드 중'} · 기준일 {getToday().toISOString().slice(0, 10)}
                 </p>
             </footer>
 

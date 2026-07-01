@@ -5,6 +5,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { handler as etfExplorerHandler } from './netlify/functions/etf-explorer.js';
+import { handler as exchangeRateHandler } from './netlify/functions/exchange-rate.js';
 import { handler as holdingsHandler } from './netlify/functions/holdings.js';
 import { handler as mddHandler } from './netlify/functions/mdd.js';
 
@@ -55,6 +56,14 @@ export default defineConfig({
                             if (!q) return send(400, { error: 'q required' });
                             const data = await yahooFinance.search(q, { quotesCount: 6, newsCount: 0 });
                             return send(200, data);
+                        }
+
+                        if (url.pathname === '/api/exchange-rate') {
+                            const result = await exchangeRateHandler();
+                            res.statusCode = result.statusCode;
+                            Object.entries(result.headers || {}).forEach(([key, value]) => res.setHeader(key, value));
+                            res.end(result.body);
+                            return;
                         }
 
                         if (url.pathname === '/api/kr-stocks') {
@@ -149,8 +158,13 @@ export default defineConfig({
                                     name: (fields[2] || '').trim(),
                                     shortName: (fields[3] || '').trim(),
                                     engName: (fields[4] || '').trim(),
+                                    listingType: (fields[8] || '').trim(),
+                                    replicationType: (fields[9] || '').trim(),
                                     market: (fields[10] || '').trim(),
                                     assetType: (fields[11] || '').trim(),
+                                    manager: (fields[13] || '').trim(),
+                                    totalExpense: (fields[15] || '').trim(),
+                                    taxType: (fields[16] || '').trim(),
                                     type: 'ETF',
                                 });
                             }

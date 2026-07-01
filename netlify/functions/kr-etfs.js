@@ -21,8 +21,13 @@ export const handler = async () => {
                 name: (fields[2] || '').trim(),
                 shortName: (fields[3] || '').trim(),
                 engName: (fields[4] || '').trim(),
+                listingType: (fields[8] || '').trim(),
+                replicationType: (fields[9] || '').trim(),
                 market: (fields[10] || '').trim(),
                 assetType: (fields[11] || '').trim(),
+                manager: (fields[13] || '').trim(),
+                totalExpense: (fields[15] || '').trim(),
+                taxType: (fields[16] || '').trim(),
                 type: 'ETF',
             });
         }
