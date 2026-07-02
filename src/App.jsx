@@ -2080,29 +2080,16 @@ function TaxFlowCard({ row, index }) {
                 </span>
             </div>
 
-            <div className="relative grid gap-3 md:grid-cols-[1fr_auto_1fr_auto_1fr] md:items-stretch">
-                <div className="rounded-lg border border-slate-100 bg-slate-50/80 p-3 dark:border-slate-800 dark:bg-slate-950/35">
-                    <p className="text-[10px] font-semibold uppercase text-slate-400 dark:text-slate-500">수익 구분</p>
-                    <div className="mt-2 grid gap-2">
-                        {steps.map((step) => (
-                            <div key={step.label} className="flex items-center gap-2 rounded-md bg-white px-2.5 py-2 text-xs text-slate-600 shadow-sm dark:bg-slate-900 dark:text-slate-300">
-                                <span className="text-slate-400 dark:text-slate-500">{step.icon}</span>
-                                <span className="font-semibold">{step.label}</span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
-                <div className="hidden items-center md:flex" aria-hidden>
-                    <div className={`h-px w-8 bg-gradient-to-r ${tone.line}`} />
-                </div>
-
+            <div className="relative grid gap-3 md:grid-cols-[1fr_auto_1fr] md:items-stretch">
                 <div className="rounded-lg border border-slate-100 bg-slate-50/80 p-3 dark:border-slate-800 dark:bg-slate-950/35">
                     <p className="text-[10px] font-semibold uppercase text-slate-400 dark:text-slate-500">과세 방식</p>
                     <div className="mt-2 grid gap-2">
                         {steps.map((step) => (
                             <div key={step.label} className="rounded-md bg-white px-2.5 py-2 shadow-sm dark:bg-slate-900">
-                                <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500">{step.label}</p>
+                                <p className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400 dark:text-slate-500">
+                                    {step.icon}
+                                    {step.label}
+                                </p>
                                 <p className="mt-0.5 text-xs font-semibold leading-5 text-slate-700 dark:text-slate-200">
                                     {step.value}
                                 </p>
