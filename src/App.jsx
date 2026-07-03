@@ -66,6 +66,11 @@ const fmtUSD = (v) =>
 
 const fmtNum = (v, currency) => (currency === 'USD' ? fmtUSD(v) : fmtKRW(v));
 
+const getSecurityName = (item) =>
+    item?.displayName || item?.name || item?.shortName || item?.longName || item?.ticker || item?.symbol || '';
+
+const getSecuritySymbol = (item) => item?.ticker || item?.symbol || item?.code || '';
+
 const parseDate = (s) => new Date(s);
 
 const fmtMD = (s) => {
@@ -454,6 +459,8 @@ function SearchBar({ onSelect, onFetch, liveCache, krStocks, krEtfs, krDataReady
                         )}
                     {mergedResults.map((s) => {
                         const isSuggestion = s._source === 'suggestion' || s._source === 'krLocal';
+                        const securityName = getSecurityName(s);
+                        const securitySymbol = getSecuritySymbol(s);
                         const next = !isSuggestion ? nextExDate(s) : null;
                         const dd = next ? dDay(next.exDate) : null;
                         const yieldText =
@@ -481,16 +488,15 @@ function SearchBar({ onSelect, onFetch, liveCache, krStocks, krEtfs, krDataReady
                                     className="w-9 h-9 rounded-lg bg-slate-950 dark:bg-white
                   flex items-center justify-center flex-shrink-0"
                                 >
-                                    <span className="text-white dark:text-slate-950 text-xs font-bold">{s.ticker.slice(0, 2)}</span>
+                                    <span className="text-white dark:text-slate-950 text-xs font-bold">{securitySymbol.slice(0, 2)}</span>
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
-                                        {/[가-힣]/.test(s.name) ? s.name : s.ticker}
+                                    <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">
+                                        {securityName}
                                     </p>
                                     <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                                        {/[가-힣]/.test(s.name)
-                                            ? s.ticker
-                                            : s.name || s.longName || s.shortName || s.exchange || ''}
+                                        {securitySymbol}
+                                        {s.exchange ? ` · ${s.exchange}` : ''}
                                     </p>
                                 </div>
                                 <div className="text-right flex-shrink-0">
@@ -565,6 +571,8 @@ function WatchlistPanel({ watchlist, selected, onSelect, onRemove }) {
                     const next = nextExDate(s);
                     const dd = next ? dDay(next.exDate) : null;
                     const isActive = selected && selected.ticker === s.ticker;
+                    const securityName = getSecurityName(s);
+                    const securitySymbol = getSecuritySymbol(s);
                     return (
                         <li key={s.ticker} className="relative group">
                             <button
@@ -588,7 +596,7 @@ function WatchlistPanel({ watchlist, selected, onSelect, onRemove }) {
                                                     : 'text-slate-800 dark:text-slate-100')
                                             }
                                         >
-                                            {s.ticker}
+                                            {securityName}
                                         </p>
                                         <p
                                             className={
@@ -598,7 +606,7 @@ function WatchlistPanel({ watchlist, selected, onSelect, onRemove }) {
                                                     : 'text-slate-500 dark:text-slate-400')
                                             }
                                         >
-                                            {s.displayName || s.name}
+                                            {securitySymbol}
                                         </p>
                                     </div>
                                 </div>
@@ -664,7 +672,7 @@ function WatchlistPanel({ watchlist, selected, onSelect, onRemove }) {
 // ─────────────────────────────────────────────
 function StockInfoHeader({ stock, mddData, loadingMdd }) {
     const shareUrl = `https://divi-tracker.netlify.app/?ticker=${encodeURIComponent(stock.ticker)}`;
-    const name = stock.displayName || stock.name || stock.ticker;
+    const name = getSecurityName(stock);
     const yieldStr = stock.dividendYield ? stock.dividendYield.toFixed(2) + '%' : '';
     const shareText = `${name}(${stock.ticker}) 배당수익률 ${yieldStr}\n배당락일·배당금 실시간 조회`;
     const threadsUrl = `https://www.threads.net/intent/post?text=${encodeURIComponent(shareText + '\n' + shareUrl)}`;
@@ -691,7 +699,12 @@ function StockInfoHeader({ stock, mddData, loadingMdd }) {
                         </div>
                         <div className="min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
-                                <h1 className="text-xl font-black text-slate-900 dark:text-white">{stock.ticker}</h1>
+                                <h1 className="min-w-0 text-xl font-black text-slate-900 dark:text-white">
+                                    {name}
+                                </h1>
+                                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-300">
+                                    {stock.ticker}
+                                </span>
                                 <span
                                     className={
                                         'px-2 py-0.5 rounded-full text-xs font-semibold ' +
@@ -704,9 +717,6 @@ function StockInfoHeader({ stock, mddData, loadingMdd }) {
                                 </span>
                                 <FreqBadge freq={stock.frequency} />
                             </div>
-                            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-                                {stock.displayName || stock.name}
-                            </p>
                             <p className="text-xs text-slate-400 dark:text-slate-500">{stock.sector}</p>
                         </div>
                     </div>
@@ -1416,12 +1426,12 @@ function PopularStocksGuide() {
                         className="dm-card p-4"
                     >
                         <div className="flex items-center gap-2 mb-2">
-                            <span className="text-base font-black text-slate-900 dark:text-white">{s.ticker}</span>
+                            <span className="text-base font-black text-slate-900 dark:text-white">{s.nameKo}</span>
                             <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${s.freqColor}`}>
                                 {s.freq}
                             </span>
                         </div>
-                        <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">{s.nameKo}</p>
+                        <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">{s.ticker}</p>
                         <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed mb-2">{s.desc}</p>
                         <p className="text-xs text-orange-500 font-semibold">배당수익률 {s.yieldRange}</p>
                     </article>
