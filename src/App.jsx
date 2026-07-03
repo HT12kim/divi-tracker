@@ -2215,11 +2215,11 @@ function StockDetailView({ stock, holdingsData, loadingHoldings, capexData, load
         <div className="flex-1 w-full flex flex-col gap-4 min-w-0">
             <StockJsonLd stock={stock} />
             <StockInfoHeader stock={stock} mddData={mddData} loadingMdd={loadingMdd} />
-            <TaxComparisonPanel stock={stock} />
             <DpsBarChart stock={stock} />
             <DividendTimeline stock={stock} />
             <CapexContainer stock={stock} capexData={capexData} loading={loadingCapex} />
             <EtpHoldingsContainer stock={stock} holdingsData={holdingsData} loading={loadingHoldings} />
+            <TaxComparisonPanel stock={stock} />
         </div>
     );
 }
