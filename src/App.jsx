@@ -20,6 +20,9 @@ import {
     AlertCircle,
     Factory,
     Share2,
+    ChevronDown,
+    Database,
+    ShieldCheck,
 } from 'lucide-react';
 import {
     LineChart,
@@ -39,7 +42,7 @@ import {
 // 2. 프리셋 티커 (표시용)
 // ─────────────────────────────────────────────
 const PRESET_TICKERS = ['QQQ', 'SCHD', 'JEPI', 'JEPQ', 'AAPL', 'MSFT', 'KO', 'T', 'O', '005930', '000660'];
-const CACHE_VERSION = 5; // 버전 올리면 모든 stale 캐시 자동 파기
+const CACHE_VERSION = 6; // 버전 올리면 모든 stale 캐시 자동 파기
 
 // ─────────────────────────────────────────────
 // 3. 공용 상수
@@ -1975,36 +1978,59 @@ function getKrEtfTaxProfile(stock) {
     const region = stock.etfMarket || '';
     const assetType = stock.etfAssetType || '';
     const taxType = stock.etfTaxType || '';
+    const listingType = stock.etfListingType || '';
+    const replicationType = stock.etfReplicationType || '';
+    const totalExpense = stock.etfTotalExpense || '';
     const hasHoldingPeriodTax = taxType.includes('보유기간과세');
     const hasSeparateTax = taxType.includes('분리과세');
     const hasTaxExempt = taxType.includes('비과세');
     const isOverseas = region.includes('해외');
+    const isDomesticEquity = region.includes('국내') && assetType.includes('주식') && !isOverseas;
     const isMixedAsset = assetType.includes('혼합');
+    const isSynthetic = replicationType.includes('합성') || listingType.includes('합성');
 
     let gain = '상품 구조별 과세 확인 필요';
+    let taxStructure = '상품 편입자산과 과세유형 확인 필요';
     if (hasHoldingPeriodTax) {
         gain = '보유기간 과표증분 15.4%';
+        taxStructure = '매매차익도 보유기간 과표증분 기준 과세 가능';
     } else if (hasSeparateTax) {
         gain = '분리과세 대상 가능';
+        taxStructure = '분리과세 조건 충족 여부 확인 필요';
     } else if (hasTaxExempt) {
         gain = '국내주식형 매매차익 비과세 가능';
+        taxStructure = '국내주식형 ETF로 매매차익 비과세 가능';
+    } else if (isDomesticEquity) {
+        gain = '국내주식형 매매차익 비과세 가능';
+        taxStructure = '국내주식형으로 분류되면 매매차익 비과세 가능';
     }
 
     const classification = [region, assetType, taxType].filter(Boolean).join(' · ') || 'ETF 세부 분류 미확인';
     const checkpoint = taxType
-        ? `${classification}${isMixedAsset ? ' · 혼합자산 편입비중 확인' : ''}`
+        ? `${classification}${isMixedAsset ? ' · 혼합자산 편입비중 확인' : ''}${isSynthetic ? ' · 합성형 구조 확인' : ''}`
         : `${classification} · 운용사 투자설명서 확인`;
+    const isaFit = isOverseas || hasHoldingPeriodTax || isMixedAsset
+        ? 'ISA에서 손익통산 효과 확인'
+        : 'ISA 편입 시 저율과세 효과 제한적';
+    const pensionFit = isOverseas || isMixedAsset || hasHoldingPeriodTax
+        ? '연금계좌 과세이연 활용 후보'
+        : '장기보유 목적이면 연금계좌 편입 가능 여부 확인';
 
     return {
         region,
         assetType,
         taxType,
+        listingType,
+        replicationType,
+        totalExpense,
         classification,
         dividend: isOverseas ? '분배금 15.4% 원천징수, 해외원천세 영향 가능' : '분배금 15.4% 원천징수',
         gain,
+        taxStructure,
         isaDividend: 'ISA 순이익에 포함',
         isaGain: hasHoldingPeriodTax ? '보유기간과세 손익도 ISA 손익통산' : 'ETF 매매손익 ISA 손익통산',
-        pensionNote: `${region || '국내상장'} ETF · 연금계좌 편입 가능 여부 확인`,
+        isaFit,
+        pensionNote: `${region || '국내상장'} ETF · ${pensionFit}`,
         checkpoint,
     };
 }
@@ -2017,6 +2043,11 @@ function getTaxComparisonRows(stock) {
     return [
         {
             account: '일반주식계좌',
+            summary: krEtfTax
+                ? `분배금은 원천징수, 차익은 ${krEtfTax.taxStructure}`
+                : isUS
+                  ? '배당은 미국 원천징수, 매매차익은 해외주식 양도세 기준'
+                  : '배당은 원천징수, 상장주식 매매차익은 통상 비과세 기준',
             dividend: krEtfTax ? krEtfTax.dividend : isUS ? '미국 원천 15% 중심' : '15.4% 원천징수',
             gain: isUS
                 ? '연 250만원 공제 후 22%'
@@ -2029,6 +2060,9 @@ function getTaxComparisonRows(stock) {
         },
         {
             account: 'ISA계좌',
+            summary: krEtfTax
+                ? `${krEtfTax.isaFit} · 만기 순이익 기준 저율과세`
+                : '계좌 안에서 손익통산 후 비과세 한도와 저율과세 적용',
             dividend: krEtfTax ? krEtfTax.isaDividend : '순이익 200만원 비과세, 초과 9.9%',
             gain: krEtfTax ? krEtfTax.isaGain : '손익통산 후 200만원 비과세, 초과 9.9%',
             note: krEtfTax
@@ -2039,6 +2073,7 @@ function getTaxComparisonRows(stock) {
         },
         {
             account: '연금저축계좌',
+            summary: '운용 중 과세이연, 연금 수령 시 낮은 연금소득세율 적용',
             dividend: '계좌 내 과세이연, 연금수령 3.3~5.5%',
             gain: '계좌 내 과세이연, 연금수령 3.3~5.5%',
             note: krEtfTax
@@ -2072,9 +2107,10 @@ function getTaxAccountTone(index) {
 }
 
 function TaxFlowCard({ row, index }) {
+    const [expanded, setExpanded] = useState(index === 0);
     const tone = getTaxAccountTone(index);
     const steps = [
-        { label: '배당·분배금', value: row.dividend, icon: <DollarSign className="h-3.5 w-3.5" /> },
+        { label: '분배금', value: row.dividend, icon: <DollarSign className="h-3.5 w-3.5" /> },
         { label: '차익', value: row.gain, icon: <TrendingUp className="h-3.5 w-3.5" /> },
     ];
 
@@ -2090,33 +2126,53 @@ function TaxFlowCard({ row, index }) {
                 </span>
             </div>
 
-            <div className="relative grid gap-3 md:grid-cols-[1fr_auto_1fr] md:items-stretch">
-                <div className="rounded-lg border border-slate-100 bg-slate-50/80 p-3 dark:border-slate-800 dark:bg-slate-950/35">
-                    <p className="text-[10px] font-semibold uppercase text-slate-400 dark:text-slate-500">과세 방식</p>
-                    <div className="mt-2 grid gap-2">
-                        {steps.map((step) => (
-                            <div key={step.label} className="rounded-md bg-white px-2.5 py-2 shadow-sm dark:bg-slate-900">
-                                <p className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400 dark:text-slate-500">
-                                    {step.icon}
-                                    {step.label}
-                                </p>
-                                <p className="mt-0.5 text-xs font-semibold leading-5 text-slate-700 dark:text-slate-200">
-                                    {step.value}
-                                </p>
-                            </div>
-                        ))}
+            <div className={`rounded-lg border p-3 ${tone.accent}`}>
+                <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase opacity-75">
+                    <ShieldCheck className="h-3.5 w-3.5" />
+                    핵심 결론
+                </p>
+                <p className="mt-2 text-sm font-bold leading-6">{row.summary}</p>
+            </div>
+
+            <button
+                type="button"
+                onClick={() => setExpanded((value) => !value)}
+                aria-expanded={expanded}
+                className="mt-2 flex w-full items-center justify-between rounded-md border border-slate-200 bg-white/70 px-3 py-2 text-left text-xs font-semibold text-slate-500 transition-colors hover:border-orange-200 hover:text-orange-600 dark:border-slate-800 dark:bg-slate-950/30 dark:text-slate-400 dark:hover:border-orange-900 dark:hover:text-orange-300"
+            >
+                <span>세부 조건</span>
+                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+            </button>
+
+            {expanded && (
+                <div className="relative mt-3 grid gap-3 md:grid-cols-[1fr_auto_1fr] md:items-stretch">
+                    <div className="rounded-lg border border-slate-100 bg-slate-50/80 p-3 dark:border-slate-800 dark:bg-slate-950/35">
+                        <p className="text-[10px] font-semibold uppercase text-slate-400 dark:text-slate-500">과세 방식</p>
+                        <div className="mt-2 grid gap-2">
+                            {steps.map((step) => (
+                                <div key={step.label} className="rounded-md bg-white px-2.5 py-2 shadow-sm dark:bg-slate-900">
+                                    <p className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400 dark:text-slate-500">
+                                        {step.icon}
+                                        {step.label}
+                                    </p>
+                                    <p className="mt-0.5 text-xs font-semibold leading-5 text-slate-700 dark:text-slate-200">
+                                        {step.value}
+                                    </p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="hidden items-center md:flex" aria-hidden>
+                        <div className={`h-px w-8 bg-gradient-to-r ${tone.line}`} />
+                    </div>
+
+                    <div className={`rounded-lg border p-3 ${tone.accent}`}>
+                        <p className="text-[10px] font-semibold uppercase opacity-75">확인 포인트</p>
+                        <p className="mt-2 text-xs font-semibold leading-5">{row.note}</p>
                     </div>
                 </div>
-
-                <div className="hidden items-center md:flex" aria-hidden>
-                    <div className={`h-px w-8 bg-gradient-to-r ${tone.line}`} />
-                </div>
-
-                <div className={`rounded-lg border p-3 ${tone.accent}`}>
-                    <p className="text-[10px] font-semibold uppercase opacity-75">확인 포인트</p>
-                    <p className="mt-2 text-xs font-semibold leading-5">{row.note}</p>
-                </div>
-            </div>
+            )}
         </div>
     );
 }
@@ -2156,6 +2212,9 @@ function TaxComparisonPanel({ stock }) {
                             ['투자지역', krEtfTax.region || '미확인'],
                             ['자산분류', krEtfTax.assetType || '미확인'],
                             ['과세유형', krEtfTax.taxType || '미확인'],
+                            ['상장유형', krEtfTax.listingType || '미확인'],
+                            ['복제방식', krEtfTax.replicationType || '미확인'],
+                            ['총보수', krEtfTax.totalExpense || '미확인'],
                         ].map(([label, value]) => (
                             <span
                                 key={label}
@@ -2178,6 +2237,116 @@ function TaxComparisonPanel({ stock }) {
             <div className="border-t border-slate-100 bg-slate-50/70 px-4 py-3 text-[11px] leading-5 text-slate-500 dark:border-slate-800 dark:bg-slate-950/40 dark:text-slate-400 sm:px-5">
                 실제 세금은 거주자 여부, 금융소득 합계, 손익통산, 상품 편입자산, 중도해지 여부에 따라 달라질 수 있습니다.
                 투자 판단 전 증권사 과세 안내와 세무 전문가 확인이 필요합니다.
+            </div>
+        </div>
+    );
+}
+
+function DetailSectionHeader({ label, title, description }) {
+    return (
+        <div className="flex flex-wrap items-end justify-between gap-2 px-1 pt-1">
+            <div className="min-w-0">
+                <p className="text-[11px] font-bold uppercase tracking-wide text-orange-500 dark:text-orange-300">{label}</p>
+                <h2 className="mt-0.5 text-base font-black text-slate-900 dark:text-white">{title}</h2>
+            </div>
+            {description && (
+                <p className="max-w-xl text-xs leading-5 text-slate-500 dark:text-slate-400">{description}</p>
+            )}
+        </div>
+    );
+}
+
+function getDataQualityTone(status) {
+    if (status === 'ok') {
+        return 'border-emerald-200 bg-emerald-50/70 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/20 dark:text-emerald-300';
+    }
+    if (status === 'loading') {
+        return 'border-sky-200 bg-sky-50/70 text-sky-700 dark:border-sky-900/50 dark:bg-sky-950/20 dark:text-sky-300';
+    }
+    return 'border-amber-200 bg-amber-50/80 text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/25 dark:text-amber-300';
+}
+
+function DataQualityPanel({ stock, holdingsData, loadingHoldings, capexData, loadingCapex, mddData, loadingMdd }) {
+    if (!stock) return null;
+
+    const events = stock.events || [];
+    const isETF = stock.quoteType === 'ETF' || stock.quoteType === 'MUTUALFUND';
+    const isEquity = stock.quoteType === 'EQUITY';
+    const holdings = holdingsData?.holdings || [];
+    const capexAnnual = capexData?.annual || [];
+    const mddReady = mddData?.mdd10y != null || mddData?.mdd1y != null;
+    const quoteSource = stock.country === 'KR' ? 'Yahoo Finance + 종목 CSV' : 'Yahoo Finance';
+    const dividendSource = stock.country === 'KR' ? 'KSD + Yahoo Finance' : 'Yahoo Finance';
+
+    const items = [
+        {
+            label: '시세',
+            value: stock.currentPrice > 0 ? '정상' : '확인 필요',
+            detail: quoteSource,
+            status: stock.currentPrice > 0 ? 'ok' : 'warn',
+        },
+        {
+            label: '배당',
+            value: events.length > 0 ? `${events.length}건` : '이벤트 없음',
+            detail: dividendSource,
+            status: events.length > 0 ? 'ok' : 'warn',
+        },
+        ...(isETF
+            ? [
+                  {
+                      label: '구성종목',
+                      value: loadingHoldings ? '조회 중' : holdings.length > 0 ? `상위 ${holdings.length}개` : '누락',
+                      detail: holdingsData?.source
+                          ? `${holdingsData.source}${holdingsData.tradingDate ? ` · ${holdingsData.tradingDate}` : ''}`
+                          : 'FnGuide/Yahoo',
+                      status: loadingHoldings ? 'loading' : holdings.length > 0 ? 'ok' : 'warn',
+                  },
+              ]
+            : []),
+        ...(isEquity
+            ? [
+                  {
+                      label: 'CAPEX',
+                      value: loadingCapex ? '조회 중' : capexAnnual.length > 0 ? `${capexAnnual.length}개 연도` : '누락',
+                      detail: capexData?.source || '재무제표',
+                      status: loadingCapex ? 'loading' : capexAnnual.length > 0 ? 'ok' : 'warn',
+                  },
+              ]
+            : []),
+        {
+            label: 'MDD',
+            value: loadingMdd ? '조회 중' : mddReady ? '계산 완료' : '누락',
+            detail: 'Yahoo 월간 가격 이력',
+            status: loadingMdd ? 'loading' : mddReady ? 'ok' : 'warn',
+        },
+    ];
+
+    return (
+        <div className="dm-card overflow-hidden">
+            <div className="flex items-start gap-2 border-b border-slate-100 px-4 py-3.5 dark:border-slate-800 sm:px-5">
+                <Database className="mt-0.5 h-4 w-4 flex-shrink-0 text-indigo-500" />
+                <div className="min-w-0">
+                    <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">데이터 상태 진단</h2>
+                    <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                        현재 종목 화면에 표시된 주요 데이터의 출처와 누락 상태입니다.
+                    </p>
+                </div>
+            </div>
+            <div className="grid gap-2 px-4 py-4 sm:grid-cols-2 lg:grid-cols-3 sm:px-5">
+                {items.map((item) => (
+                    <div
+                        key={item.label}
+                        className="rounded-lg border border-slate-200/80 bg-white/70 p-3 dark:border-slate-800 dark:bg-slate-900/55"
+                    >
+                        <div className="flex items-center justify-between gap-2">
+                            <p className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">{item.label}</p>
+                            <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${getDataQualityTone(item.status)}`}>
+                                {item.value}
+                            </span>
+                        </div>
+                        <p className="mt-2 text-xs font-semibold leading-5 text-slate-700 dark:text-slate-200">{item.detail}</p>
+                    </div>
+                ))}
             </div>
         </div>
     );
@@ -2211,15 +2380,65 @@ function StockJsonLd({ stock }) {
 // 13-b. StockDetailView
 // ─────────────────────────────────────────────
 function StockDetailView({ stock, holdingsData, loadingHoldings, capexData, loadingCapex, mddData, loadingMdd }) {
+    const isETF = stock.quoteType === 'ETF' || stock.quoteType === 'MUTUALFUND';
+    const isEquity = stock.quoteType === 'EQUITY';
+
     return (
         <div className="flex-1 w-full flex flex-col gap-4 min-w-0">
             <StockJsonLd stock={stock} />
             <StockInfoHeader stock={stock} mddData={mddData} loadingMdd={loadingMdd} />
+
+            <DetailSectionHeader
+                label="배당"
+                title="배당 흐름"
+                description="회차별 주당 배당금과 지급 시점을 먼저 확인합니다."
+            />
             <DpsBarChart stock={stock} />
             <DividendTimeline stock={stock} />
-            <CapexContainer stock={stock} capexData={capexData} loading={loadingCapex} />
+
+            {isEquity && (
+                <>
+                    <DetailSectionHeader
+                        label="기업 지표"
+                        title="설비투자 흐름"
+                        description="배당 지속성을 볼 때 함께 확인할 수 있는 CAPEX 추이입니다."
+                    />
+                    <CapexContainer stock={stock} capexData={capexData} loading={loadingCapex} />
+                </>
+            )}
+
+            {isETF && (
+                <DetailSectionHeader
+                    label="ETF 분석"
+                    title="구성종목과 과세 구조"
+                    description="편입자산을 확인한 뒤 같은 흐름에서 계좌별 과세 차이를 비교합니다."
+                />
+            )}
             <EtpHoldingsContainer stock={stock} holdingsData={holdingsData} loading={loadingHoldings} />
+
+            {!isETF && (
+                <DetailSectionHeader
+                    label="계좌"
+                    title="계좌별 과세 구조"
+                    description="조회 종목의 수익이 계좌 유형별로 어떻게 과세되는지 비교합니다."
+                />
+            )}
             <TaxComparisonPanel stock={stock} />
+
+            <DetailSectionHeader
+                label="데이터"
+                title="데이터 상태"
+                description="시세, 배당, 구성종목, CAPEX, MDD의 출처와 누락 여부를 점검합니다."
+            />
+            <DataQualityPanel
+                stock={stock}
+                holdingsData={holdingsData}
+                loadingHoldings={loadingHoldings}
+                capexData={capexData}
+                loadingCapex={loadingCapex}
+                mddData={mddData}
+                loadingMdd={loadingMdd}
+            />
         </div>
     );
 }
